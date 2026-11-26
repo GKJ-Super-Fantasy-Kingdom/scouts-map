@@ -12,7 +12,7 @@ $native = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($nativePath)
 $mod = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Resolve-Path $modPath).Path)
 try {
     $count = 0
-    foreach ($owner in @('Plugin', 'MarkerTarget', 'EncounterTargets')) {
+    foreach ($owner in @('Plugin', 'MarkerTarget', 'EncounterTargets', 'WorldSites')) {
         $type = $mod.MainModule.GetType("ScoutsMap.$owner")
         $initializer = $type.Methods | Where-Object Name -CEQ '.cctor'
         foreach ($instruction in $initializer.Body.Instructions) {
@@ -40,18 +40,19 @@ try {
         throw "Only $count field bindings were found in the built DLL."
     }
     foreach ($signature in @(
-        @('SuperFantasyKingdom.Clickable.WorldUnit', 'GetCoinCost'),
-        @('SuperFantasyKingdom.Clickable.BuildingHospital', 'GetCosts')
+        @('SuperFantasyKingdom.Clickable.WorldUnit', 'GetCoinCost', 'System.Int32'),
+        @('SuperFantasyKingdom.Clickable.BuildingHospital', 'GetCosts', 'System.Int32'),
+        @('SuperFantasyKingdom.Clickable.BuildingWorldPirates', 'GetCost', 'SuperFantasyKingdom.ResourceAmount')
     )) {
         $methods = @($native.MainModule.GetType($signature[0]).Methods | Where-Object {
-            $_.Name -ceq $signature[1] -and $_.ReturnType.FullName -ceq 'System.Int32' -and
+            $_.Name -ceq $signature[1] -and $_.ReturnType.FullName -ceq $signature[2] -and
             !$_.IsStatic -and $_.Parameters.Count -eq 0
         })
         if ($methods.Count -ne 1) {
             throw "Missing or mismatched native price method $($signature -join '.')"
         }
     }
-    "PASS $count private fields and 2 native price methods against the installed Assembly-CSharp.dll."
+    "PASS $count private fields and 3 native price methods against the installed Assembly-CSharp.dll."
 } finally {
     $mod.Dispose()
     $native.Dispose()

@@ -9,11 +9,15 @@ A dark badge with a visible lock indicates a temporary block. Shop setup timers,
 ## Markers
 
 - **Expansions and shops** include roads, city expansion, water access, and visible shops.
+- **Open quests and turn-ins** include discovered quest sites, dungeons, schools, and quest boards. Hover an open quest to check its progress.
+- **Restoration** includes damaged kingdom buildings, unopened starting-resource sites, resource plots, and occupied camps. Fixed-cost repairs show their price or requirement.
 - **World encounters** include chests, hermits, rewards, spells, captured monsters, relic drops, item and relic offers, unit rewards, recruits, and hero encounters.
 - **Monsters to provoke** show the monster’s portrait and level. Locked markers show the current provocation restriction.
-- **Ready to collect** includes quest and board turn-ins, pirate returns, and Wonder rewards.
-- **Services** include Witch bonfires, hospitals, and resource trade sites, such as the Undead Alchemist.
+- **Services and markets** include the Black Market, Trading Post, Witch bonfires, hospitals, guest callers, and the Undead Alchemist.
+- **Expeditions and rewards** include pirate expeditions and returns, and Wonder purchases and rewards.
 
-Optional markers can be enabled in `BepInEx/config/gkj.scoutsmap.cfg` under `[Markers]`. Set `RareFinds = true` for XP apples, shard finds, Super Metal, and high-value salvage. Set `UnitCages = true` for discovered achievement-based unit cages. Restart the game after changing either setting.
+Set a category to `false` under `[Markers]` in `BepInEx/config/gkj.scoutsmap.cfg` to hide its Scout badges. Changes made through a BepInEx configuration UI take effect when applied. Restart the game after editing the file by hand.
+
+The enabled categories are `Expansions`, `Shops`, `Trades`, `OpenQuests`, `QuestTurnIns`, `Restoration`, `Services`, `Treasure`, `Encounters`, `Monsters`, `Recruiting`, `Magic`, and `Rewards`. `RareFinds` and `UnitCages` are off by default.
 
 Markers use the game’s safe frame and scale. In gamepad mode they remain visible and the game keeps ownership of controller focus. Scout’s Map stores no save data.

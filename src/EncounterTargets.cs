@@ -31,6 +31,7 @@ namespace ScoutsMap
         private static readonly AccessTools.FieldRef<BuildingWorldPirates, int> PirateReturn = Field<BuildingWorldPirates, int>("m_IsPlundering");
         private static readonly AccessTools.FieldRef<BuildingWorldWonder, bool> WonderPending = Field<BuildingWorldWonder, bool>("m_SpawnTomorrow");
         private static readonly AccessTools.FieldRef<BuildingWorldWonder, GameObject> WonderReady = Field<BuildingWorldWonder, GameObject>("question");
+        private static readonly AccessTools.FieldRef<BuildingWorldWonder, ResourceAmount> WonderCost = Field<BuildingWorldWonder, ResourceAmount>("costs");
         private static readonly AccessTools.FieldRef<BuildingHospital, LocalizedString> HospitalError = Field<BuildingHospital, LocalizedString>("stringNoDead");
         private static readonly AccessTools.FieldRef<BuildingHospital, LocalizedString> HospitalTitle = Field<BuildingHospital, LocalizedString>("stringHospital");
         private static readonly AccessTools.FieldRef<BuildingTrade, ResourceAmount> TradeCost = Field<BuildingTrade, ResourceAmount>("cost");
@@ -45,11 +46,13 @@ namespace ScoutsMap
             AccessTools.MethodDelegate<Func<WorldUnit, int>>(AccessTools.DeclaredMethod(typeof(WorldUnit), "GetCoinCost"));
         private static readonly Func<BuildingHospital, int> RevivePrice =
             AccessTools.MethodDelegate<Func<BuildingHospital, int>>(AccessTools.DeclaredMethod(typeof(BuildingHospital), "GetCosts"));
+        private static readonly Func<BuildingWorldPirates, ResourceAmount> PiratePrice =
+            AccessTools.MethodDelegate<Func<BuildingWorldPirates, ResourceAmount>>(AccessTools.DeclaredMethod(typeof(BuildingWorldPirates), "GetCost"));
 
         private static AccessTools.FieldRef<T, F> Field<T, F>(string name) =>
             AccessTools.FieldRefAccess<T, F>(name);
 
-        internal static MarkerIcon? ForPickup(ClickableSprite target, bool rareFinds)
+        internal static MarkerIcon? ForPickup(ClickableSprite target)
         {
             switch (target)
             {
@@ -64,17 +67,17 @@ namespace ScoutsMap
                 case WorldItem _: return MarkerIcon.Item;
                 case DropUnit _:
                 case WorldUnit _: return MarkerIcon.Recruit;
-                case WorldApple _ when rareFinds: return MarkerIcon.Apple;
-                case WorldSuperMetal _ when rareFinds: return MarkerIcon.Rare;
-                case WorldResource resource when rareFinds && Resource(resource) == ResourceType.Shards:
+                case WorldApple _: return MarkerIcon.Apple;
+                case WorldSuperMetal _: return MarkerIcon.Rare;
+                case WorldResource resource when Resource(resource) == ResourceType.Shards:
                     return MarkerIcon.Rare;
-                case Destroyable salvage when rareFinds && IsHighValueSalvage(salvage):
+                case Destroyable salvage when IsHighValueSalvage(salvage):
                     return MarkerIcon.Salvage;
                 default: return null;
             }
         }
 
-        internal static MarkerIcon? ForSite(ClickableSprite target, bool unitCages)
+        internal static MarkerIcon? ForSite(ClickableSprite target)
         {
             switch (target)
             {
@@ -86,35 +89,37 @@ namespace ScoutsMap
                 case BuildingWitch _: return MarkerIcon.Witch;
                 case BuildingHospital _: return MarkerIcon.Hospital;
                 case BuildingTrade _: return MarkerIcon.Trade;
-                case UnitQuest _ when unitCages: return MarkerIcon.Cage;
-                default: return null;
+                case UnitQuest _: return MarkerIcon.Cage;
+                default: return WorldSites.ForSite(target);
             }
         }
+
+        internal static bool IsQuestTurnIn(ClickableSprite target) => target switch
+        {
+            BuildingQuest quest => !quest.IsFinished() && quest.GetQuestTask() != null && quest.GetQuestTask().IsDone(),
+            BuildingBoard board => board.IsCityFinished() || board.IsCombatFinished() || board.IsDefenseFinished(),
+            _ => false
+        };
 
         internal static MarkerState Read(ClickableSprite target)
         {
             switch (target)
             {
                 case BuildingQuest quest:
-                    if (!quest.IsDone() || quest.IsFinished() || quest.GetProgressPercentage() < 1f)
+                    if (quest.IsFinished() || quest.GetQuestTask() == null || quest.GetReward() == null)
                         return MarkerState.Hidden;
-                    if (quest is BuildingDungeon && (DaytimeManager.Instance.IsNight() ||
-                        (DaytimeManager.Instance.CurrentDay() == 28 && !DaytimeManager.Instance.IsMorningOrLoading())))
+                    if (quest is BuildingDungeon dungeon && DungeonRestriction(dungeon) != null)
                         return MarkerState.Restricted;
-                    break;
-                case BuildingBoard board:
-                    if (!board.IsCityFinished() && !board.IsCombatFinished() && !board.IsDefenseFinished())
-                        return MarkerState.Hidden;
                     break;
                 case BuildingWorldPirates pirates:
                     int day = DaytimeManager.Instance.CurrentDay();
                     int returning = PirateReturn(pirates);
-                    if (returning <= 0 || returning > day || day <= 1 ||
+                    if (returning > day || day <= 1 ||
                         !RaceDataManager.Instance.HasRaceEventFlag(RaceEvent.PiratesHelped))
                         return MarkerState.Hidden;
                     break;
                 case BuildingWorldWonder wonder:
-                    if (!WonderPending(wonder) || !IsShowing(WonderReady(wonder)))
+                    if (WonderPending(wonder) && !IsShowing(WonderReady(wonder)))
                         return MarkerState.Hidden;
                     break;
                 case BuildingWitch _:
@@ -197,8 +202,8 @@ namespace ScoutsMap
                 DropUnit drop => GetUnit(UnitDrop(drop))?.GetName() ?? "Unit reward",
                 WorldUnit recruit => GetUnit(UnitOffer(recruit))?.GetName() ?? "Recruitable unit",
                 WorldHero hero => GetHero(hero)?.GetName() ?? "Hero encounter",
-                BuildingWorldPirates _ => "Pirate return",
-                BuildingWorldWonder _ => "Wonder reward",
+                BuildingWorldPirates pirates => PirateReturn(pirates) > 0 ? "Pirate return" : "Pirate expedition",
+                BuildingWorldWonder wonder => WonderPending(wonder) ? "Wonder reward" : "Wonder",
                 BuildingWitch _ => "Witch’s bonfire",
                 BuildingHospital hospital => Localize(HospitalTitle(hospital), "Hospital"),
                 BuildingTrade trade => trade.name.StartsWith("TradeAlchemist", StringComparison.Ordinal)
@@ -217,8 +222,8 @@ namespace ScoutsMap
                 return (title, FormatCost(price, state == MarkerState.Cost));
             string reason = target switch
             {
-                BuildingQuest _ => "Ready to turn in",
-                BuildingBoard _ => "Ready to turn in",
+                BuildingQuest quest => IsQuestTurnIn(quest) ? "Ready to turn in" : QuestProgress(quest),
+                BuildingBoard board => IsQuestTurnIn(board) ? "Ready to turn in" : "Open objectives",
                 BuildingWorldPirates _ => "Ready to collect",
                 BuildingWorldWonder _ => "Ready to collect",
                 Trap _ => "Ready to collect",
@@ -258,8 +263,8 @@ namespace ScoutsMap
                         : requirement.GetLocalizedString(remaining, GetHero(hero)?.GetName() ?? "Hero");
                 case BuildingHospital hospital:
                     return Localize(HospitalError(hospital), "No unit can be revived");
-                case BuildingDungeon _:
-                    return DaytimeManager.Instance.IsNight() ? "Unavailable at night" : "Available in the morning";
+                case BuildingDungeon dungeon:
+                    return DungeonRestriction(dungeon);
                 case WorldApple _:
                     return "No unit can gain experience";
                 case UnitQuest _:
@@ -276,6 +281,8 @@ namespace ScoutsMap
             WorldUnit recruit => new ResourceAmount(ResourceType.Coins, RecruitPrice(recruit)),
             BuildingHospital hospital => new ResourceAmount(ResourceType.Coins, RevivePrice(hospital)),
             BuildingTrade trade => TradeCost(trade),
+            BuildingWorldPirates pirates when PirateReturn(pirates) <= 0 => PiratePrice(pirates),
+            BuildingWorldWonder wonder when !WonderPending(wonder) => WonderCost(wonder),
             BuildingWitch _ => WitchCost(),
             WorldSuperMetal _ => new ResourceAmount(ResourceType.Shards, 12),
             _ => default
@@ -283,6 +290,30 @@ namespace ScoutsMap
 
         private static ResourceAmount WitchCost() =>
             new ResourceAmount(ResourceType.Stars, RaceDataManager.Instance.GetBonfiresUnlocked() + 12);
+
+        private static string QuestProgress(BuildingQuest quest)
+        {
+            float progress = quest.GetProgressPercentage();
+            return float.IsNaN(progress) || float.IsInfinity(progress) ? "Open quest" :
+                $"Quest in progress · {Mathf.FloorToInt(Mathf.Clamp01(progress) * 100f)}%";
+        }
+
+        private static string DungeonRestriction(BuildingDungeon dungeon)
+        {
+            var time = DaytimeManager.Instance;
+            int day = time.CurrentDay();
+            if (time.IsNight())
+                return "Unavailable at night";
+            if (day == 28 && !time.IsMorningOrLoading())
+                return "Available in the morning";
+            if (IsQuestTurnIn(dungeon))
+                return null;
+            if (day == 29)
+                return "Unavailable on the final day";
+            if (dungeon.GetUnit() > 0)
+                return dungeon.IsInDaHouse() ? "Expedition in progress" : "Expedition starts tomorrow";
+            return WorldManager.Instance.IsDungeonPlaned() ? "Another expedition is planned" : null;
+        }
 
         internal static string FormatCost(ResourceAmount price, bool blocked)
         {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Mark open quests, restorable kingdom sites, Black Markets, Trading Posts, and additional discovered world services.
+- Configure marker categories independently, including separate settings for open quests and quest turn-ins.
+
 ## 0.3.1
 
 - Move hover tooltips to a clear side of the marker when nearby badges would be covered.

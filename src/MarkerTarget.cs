@@ -26,14 +26,22 @@ namespace ScoutsMap
             AccessTools.FieldRefAccess<BuildingShop, int>("daysToSetup");
         private static readonly AccessTools.FieldRef<BuildingObjectShop, int> ObjectShopSetup =
             AccessTools.FieldRefAccess<BuildingObjectShop, int>("daysToSetup");
+        private static readonly AccessTools.FieldRef<BuildingGuildOld, int> GuildSetup =
+            AccessTools.FieldRefAccess<BuildingGuildOld, int>("daysToSetup");
         private static readonly AccessTools.FieldRef<BuildingShop, SpriteRenderer> ShopCountdown =
             AccessTools.FieldRefAccess<BuildingShop, SpriteRenderer>("daysUntilWork");
         private static readonly AccessTools.FieldRef<BuildingObjectShop, SpriteRenderer> ObjectShopCountdown =
             AccessTools.FieldRefAccess<BuildingObjectShop, SpriteRenderer>("daysUntilWork");
+        private static readonly AccessTools.FieldRef<BuildingGuildOld, SpriteRenderer> GuildCountdown =
+            AccessTools.FieldRefAccess<BuildingGuildOld, SpriteRenderer>("daysUntilWork");
         private static readonly AccessTools.FieldRef<BuildingShop, LocalizedString> ShopTitle =
             AccessTools.FieldRefAccess<BuildingShop, LocalizedString>("stringTitle");
         private static readonly AccessTools.FieldRef<BuildingObjectShop, LocalizedString> ObjectShopTitle =
             AccessTools.FieldRefAccess<BuildingObjectShop, LocalizedString>("stringTitle");
+        private static readonly AccessTools.FieldRef<BuildingGuildOld, LocalizedString> GuildTitle =
+            AccessTools.FieldRefAccess<BuildingGuildOld, LocalizedString>("stringTitle");
+        private static readonly AccessTools.FieldRef<BuildingGuildOld, LocalizedString> GuildFull =
+            AccessTools.FieldRefAccess<BuildingGuildOld, LocalizedString>("stringError");
         private static readonly AccessTools.FieldRef<ClickableSprite, BoxCollider2D> TargetCollider =
             AccessTools.FieldRefAccess<ClickableSprite, BoxCollider2D>("boxCollider2D");
         private static readonly AccessTools.FieldRef<ClickableSprite, SpriteRenderer> TargetSprite =
@@ -42,6 +50,7 @@ namespace ScoutsMap
         internal readonly ClickableSprite Clickable;
         internal readonly MarkerIcon Kind;
         internal readonly int InstanceId;
+        private readonly ClickableSprite interaction;
         private readonly UIArrowRoad roadArrow;
         private UIMarker nativeMarker;
         private Image nativeImage;
@@ -61,10 +70,10 @@ namespace ScoutsMap
             get
             {
                 Vector3 top = Position;
-                var sprite = TargetSprite(Clickable);
+                var sprite = SpriteRenderer;
                 if (sprite != null && sprite.enabled && sprite.sprite != null)
                     top = new Vector3(sprite.bounds.center.x, sprite.bounds.max.y, top.z);
-                var collider = TargetCollider(Clickable);
+                var collider = TargetCollider(interaction);
                 if (collider != null && collider.isActiveAndEnabled)
                     top.y = Mathf.Max(top.y, collider.bounds.max.y);
                 return top;
@@ -75,19 +84,27 @@ namespace ScoutsMap
         {
             get
             {
-                if ((Clickable is BuildingWorld && roadArrow == null) || Clickable is BuildingBoard)
-                    return TargetSprite(Clickable)?.sprite;
+                if (Clickable is BuildingSpotWorld plot)
+                    return WorldSites.RestoreIcon(plot) ?? SpriteRenderer?.sprite;
+                if ((Clickable is BuildingWorld && roadArrow == null) || Clickable is BuildingBoard ||
+                    Clickable is RepairableBuilding || Clickable is BuildingCloudColor)
+                    return SpriteRenderer?.sprite;
                 return EncounterTargets.GetSymbol(Clickable);
             }
         }
 
         internal bool NeedsNativeMarker { get; }
         internal bool Expired => Clickable == null;
+        internal bool IsQuestTurnIn => EncounterTargets.IsQuestTurnIn(Clickable);
+        internal MarkerGroup Group => MarkerGroups.Get(Kind, Kind == MarkerIcon.Quest && IsQuestTurnIn);
+        private SpriteRenderer SpriteRenderer => TargetSprite(Clickable) ??
+            (interaction != null ? TargetSprite(interaction) : null);
 
         private MarkerTarget(ClickableSprite clickable, MarkerIcon kind, bool needsNativeMarker = false,
             UIArrowRoad arrow = null, Road road = null)
         {
             Clickable = clickable;
+            interaction = clickable is BuildingTradingPost post ? WorldSites.TradingOverlay(post) : clickable;
             InstanceId = clickable.GetInstanceID();
             Kind = kind;
             NeedsNativeMarker = needsNativeMarker;
@@ -95,23 +112,23 @@ namespace ScoutsMap
             this.road = road;
         }
 
-        internal static MarkerTarget ForEvent(GameObject target, bool rareFinds, bool unitCages)
+        internal static MarkerTarget ForEvent(GameObject target)
         {
             if (!target.TryGetComponent(out ClickableSprite clickable))
                 return null;
 
-            MarkerTarget site = ForSite(clickable, unitCages);
+            MarkerTarget site = ForSite(clickable);
             if (site != null)
                 return site;
-            var icon = EncounterTargets.ForPickup(clickable, rareFinds);
+            var icon = EncounterTargets.ForPickup(clickable);
             return icon.HasValue ? new MarkerTarget(clickable, icon.Value, needsNativeMarker: true) : null;
         }
 
-        internal static MarkerTarget ForSite(ClickableSprite target, bool unitCages)
+        internal static MarkerTarget ForSite(ClickableSprite target)
         {
-            if (target is BuildingShop || target is BuildingObjectShop)
+            if (target is BuildingShop || target is BuildingObjectShop || target is BuildingGuildOld)
                 return new MarkerTarget(target, MarkerIcon.Shop);
-            var icon = EncounterTargets.ForSite(target, unitCages);
+            var icon = EncounterTargets.ForSite(target);
             return icon.HasValue ? new MarkerTarget(target, icon.Value) : null;
         }
 
@@ -144,7 +161,7 @@ namespace ScoutsMap
                 return MarkerState.Hidden;
             if (Kind == MarkerIcon.Road)
                 return ReadRoad();
-            if (!Clickable.isActiveAndEnabled)
+            if (!Clickable.isActiveAndEnabled || interaction == null || !interaction.isActiveAndEnabled)
                 return MarkerState.Hidden;
             // Native encounter arrows are already a discovery signal. Static sites must be uncovered.
             if (Kind == MarkerIcon.Provoke ? !IsUncovered()
@@ -152,14 +169,19 @@ namespace ScoutsMap
                 return MarkerState.Hidden;
             if (Kind == MarkerIcon.Shop && DaytimeManager.Instance.CurrentDay() <= SetupDay)
             {
-                var countdown = Clickable is BuildingShop shop ? ShopCountdown(shop)
-                    : ObjectShopCountdown((BuildingObjectShop)Clickable);
+                var countdown = Clickable switch
+                {
+                    BuildingShop shop => ShopCountdown(shop),
+                    BuildingObjectShop shop => ObjectShopCountdown(shop),
+                    BuildingGuildOld shop => GuildCountdown(shop),
+                    _ => null
+                };
                 return countdown != null && countdown.enabled && countdown.gameObject.activeInHierarchy && countdown.sprite != null
                     ? MarkerState.Setup : MarkerState.Hidden;
             }
 
-            var collider = TargetCollider(Clickable);
-            if (!Clickable.IsInteractable() || collider == null || !collider.isActiveAndEnabled)
+            var collider = TargetCollider(interaction);
+            if (!interaction.IsInteractable() || collider == null || !collider.isActiveAndEnabled)
                 return MarkerState.Hidden;
 
             switch (Kind)
@@ -167,8 +189,14 @@ namespace ScoutsMap
                 case MarkerIcon.Treasure:
                 case MarkerIcon.Hermit:
                 case MarkerIcon.Reward:
-                case MarkerIcon.Shop:
                     return MarkerState.Available;
+                case MarkerIcon.Shop:
+                    return Clickable is BuildingGuildOld && !(Clickable is BuildingBlackMarket) &&
+                        UnitManager.Instance.GetCurrentHungryUnitsAmount() == 16 ? MarkerState.Restricted : MarkerState.Available;
+                case MarkerIcon.Restore:
+                case MarkerIcon.TradingPost:
+                case MarkerIcon.Site:
+                    return WorldSites.Read(Clickable, interaction);
                 default:
                     return EncounterTargets.Read(Clickable);
             }
@@ -176,8 +204,8 @@ namespace ScoutsMap
 
         private bool IsExposed()
         {
-            var sprite = TargetSprite(Clickable);
-            return IsUncovered() && sprite != null && sprite.enabled;
+            var sprite = SpriteRenderer;
+            return IsUncovered() && sprite != null && sprite.enabled && sprite.gameObject.activeInHierarchy && sprite.sprite != null;
         }
 
         private bool IsUncovered()
@@ -216,8 +244,20 @@ namespace ScoutsMap
                 case MarkerIcon.Hermit: title = "Hermit"; break;
                 case MarkerIcon.Reward: title = "World reward"; break;
                 case MarkerIcon.Road: title = road.city ? "City expansion" : road.pier != null ? "Water access" : "Road expansion"; break;
-                case MarkerIcon.Shop: title = Localize(Clickable is BuildingShop shop ? ShopTitle(shop) :
-                    ObjectShopTitle((BuildingObjectShop)Clickable), "Shop"); break;
+                case MarkerIcon.Shop:
+                    title = Clickable switch
+                    {
+                        BuildingShop shop => Localize(ShopTitle(shop), "Shop"),
+                        BuildingObjectShop shop => Localize(ObjectShopTitle(shop), "Shop"),
+                        BuildingBlackMarket shop => Localize(GuildTitle(shop), "Black Market"),
+                        BuildingGuildOld shop => Localize(GuildTitle(shop), "Guild"),
+                        _ => "Shop"
+                    };
+                    break;
+                case MarkerIcon.Restore:
+                case MarkerIcon.TradingPost:
+                case MarkerIcon.Site:
+                    return WorldSites.Describe(Clickable, state);
                 default: return EncounterTargets.Describe(Clickable, state);
             }
 
@@ -231,13 +271,20 @@ namespace ScoutsMap
                 case MarkerState.Level: reason = Localize(NeedLevel(roadArrow), $"Requires kingdom level {road.requiredKingdomLevel}"); break;
                 case MarkerState.Stars: reason = Localize(NeedStars(roadArrow), $"Requires {road.requiredStars} stars"); break;
                 case MarkerState.Cost: reason = EncounterTargets.FormatCost(road.GetCost(), blocked: true); break;
+                case MarkerState.Restricted when Clickable is BuildingGuildOld guild:
+                    reason = Localize(GuildFull(guild), "No room to recruit another unit"); break;
                 default: return (title, null);
             }
             return (title, reason);
         }
 
-        private int SetupDay => Clickable is BuildingShop shop ? ShopSetup(shop)
-            : ObjectShopSetup((BuildingObjectShop)Clickable);
+        private int SetupDay => Clickable switch
+        {
+            BuildingShop shop => ShopSetup(shop),
+            BuildingObjectShop shop => ObjectShopSetup(shop),
+            BuildingGuildOld shop => GuildSetup(shop),
+            _ => -1
+        };
 
         private static string Localize(LocalizedString text, string fallback) =>
             text == null || text.IsEmpty ? fallback : text.GetLocalizedString();

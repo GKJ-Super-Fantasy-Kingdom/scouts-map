@@ -7,7 +7,8 @@ namespace ScoutsMap
     internal enum MarkerIcon
     {
         Treasure, Hermit, Reward, Road, City, Water, Shop, Quest, Spell, Capture, Relic, Item,
-        Recruit, Hero, Pirate, Wonder, Witch, Hospital, Trade, Apple, Rare, Cage, Salvage, Provoke
+        Recruit, Hero, Pirate, Wonder, Witch, Hospital, Trade, Apple, Rare, Cage, Salvage, Provoke,
+        Restore, TradingPost, Site
     }
 
     internal sealed class MarkerArt : IDisposable
@@ -142,6 +143,9 @@ namespace ScoutsMap
             Add(MarkerIcon.Provoke, new Color32(226, 112, 103, 255), new Color32(135, 52, 62, 255),
                 "oo......oo", "o#o....o#o", "o#+oooo+#o", "o++++++++o", "o+#++++#+o",
                 "o++----++o", ".o+####+o.", "..o+##+o..", "...oooo...");
+            Add(MarkerIcon.Restore, new Color32(219, 172, 101, 255), new Color32(137, 86, 52, 255),
+                "..ooooo...", ".o##+++oo.", "o##++++++o", ".oo+++++oo", "...o++oo..",
+                "...o+-o...", "..o+-o....", ".o+-o.....", "o++o......", ".oo.......");
         }
 
         internal (Sprite Plate, Sprite Rim, Color32 Accent) Frame(MarkerIcon icon)
@@ -157,6 +161,9 @@ namespace ScoutsMap
                 case MarkerIcon.Wonder:
                 case MarkerIcon.Witch:
                 case MarkerIcon.Hospital:
+                case MarkerIcon.TradingPost:
+                case MarkerIcon.Restore:
+                case MarkerIcon.Site:
                 case MarkerIcon.Trade: return frames[(int)FrameType.Site];
                 case MarkerIcon.Hermit:
                 case MarkerIcon.Recruit:
@@ -189,7 +196,14 @@ namespace ScoutsMap
                 Draw(Color.white, Color.clear, Color.white, Vector4.zero, rim), accent);
         }
 
-        internal Sprite Symbol(MarkerIcon icon, bool available) => symbols[(int)icon, available ? 0 : 1];
+        internal Sprite Symbol(MarkerIcon icon, bool available)
+        {
+            if (icon == MarkerIcon.TradingPost)
+                icon = MarkerIcon.Trade;
+            else if (icon == MarkerIcon.Site)
+                icon = MarkerIcon.Quest;
+            return symbols[(int)icon, available ? 0 : 1];
+        }
 
         private void Add(MarkerIcon icon, Color32 middle, Color32 shade, params string[] rows)
         {

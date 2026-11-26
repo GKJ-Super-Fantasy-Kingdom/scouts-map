@@ -13,7 +13,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.3.1")]
+    [BepInPlugin(Id, "Scout's Map", "0.4.0")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -32,8 +32,7 @@ namespace ScoutsMap
         private float rescanAt;
         private readonly List<MarkerTarget> markers = new List<MarkerTarget>();
         private readonly Dictionary<int, MarkerTarget> discovered = new Dictionary<int, MarkerTarget>();
-        private bool rareFinds;
-        private bool unitCages;
+        private MarkerGroups groups;
         private bool scanSceneSites;
         private readonly List<MarkerPoint> occupied = new List<MarkerPoint>();
         private readonly List<(MarkerTarget Marker, MarkerState State, Vector3 Target)> edgeMarkers =
@@ -53,11 +52,9 @@ namespace ScoutsMap
             harmony = new Harmony(Id);
             try
             {
-                rareFinds = Config.Bind("Markers", "RareFinds", false,
-                    "Show XP apples, shards, Super Metal and high-value salvage. Restart the game after changing.").Value;
-                unitCages = Config.Bind("Markers", "UnitCages", false,
-                    "Show discovered achievement-based unit cages. Restart the game after changing.").Value;
+                groups = new MarkerGroups(Config);
                 System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(EncounterTargets).TypeHandle);
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(WorldSites).TypeHandle);
                 art = new MarkerArt();
                 harmony.PatchAll(typeof(Plugin).Assembly);
                 instance = this;
@@ -203,27 +200,33 @@ namespace ScoutsMap
                 foreach (var building in WorldManager.Instance.GetBuildingsWorld())
                 {
                     if (building != null && !discovered.ContainsKey(building.GetInstanceID()))
-                        Track(MarkerTarget.ForSite(building, unitCages));
+                        Track(MarkerTarget.ForSite(building));
                 }
                 TrackSite(WorldManager.Instance.GetWorldHero());
             }
+            if (DepositManager.Instance != null)
+                foreach (var repair in DepositManager.Instance.GetRepairableBuildings())
+                    TrackSite(repair);
             if (scanSceneSites)
             {
                 scanSceneSites = false;
                 foreach (var board in FindObjectsOfType<BuildingBoard>(true))
                     TrackSite(board);
-                if (unitCages)
-                {
-                    foreach (var cage in FindObjectsOfType<UnitQuest>(true))
-                        TrackSite(cage);
-                }
+                foreach (var cage in FindObjectsOfType<UnitQuest>(true))
+                    TrackSite(cage);
+                foreach (var plot in FindObjectsOfType<BuildingSpotWorld>(true))
+                    TrackSite(plot);
+                foreach (var repair in FindObjectsOfType<RepairableBuilding>(true))
+                    TrackSite(repair);
+                foreach (var clouds in FindObjectsOfType<BuildingCloudColor>(true))
+                    TrackSite(clouds);
             }
         }
 
         private void TrackSite(ClickableSprite target)
         {
             if (target != null && !discovered.ContainsKey(target.GetInstanceID()))
-                Track(MarkerTarget.ForSite(target, unitCages));
+                Track(MarkerTarget.ForSite(target));
         }
 
         private void Track(MarkerTarget target)
@@ -236,6 +239,12 @@ namespace ScoutsMap
 
         private void DrawMarker(MarkerTarget marker, MarkerBounds frame, Camera camera, float scale)
         {
+            if (!groups.Enabled(marker.Group))
+            {
+                marker.ReplaceNativeImage(false);
+                HideMarker(marker);
+                return;
+            }
             MarkerState state = marker.NeedsNativeMarker && host.alpha <= 0.01f
                 ? MarkerState.Hidden : marker.Read();
             marker.ReplaceNativeImage(marker.NeedsNativeMarker || state != MarkerState.Hidden);
@@ -280,7 +289,7 @@ namespace ScoutsMap
 
         internal void Focus(MarkerTarget marker)
         {
-            if (CanShow() && marker.Read() == MarkerState.Available)
+            if (CanShow() && groups.Enabled(marker.Group) && marker.Read() == MarkerState.Available)
                 GameCamera.Instance.SetPosition(marker.Position);
         }
 
@@ -393,7 +402,7 @@ namespace ScoutsMap
             {
                 if (instance == null || o == null || icon != null || ___image == null)
                     return;
-                var marker = MarkerTarget.ForEvent(o, instance.rareFinds, instance.unitCages);
+                var marker = MarkerTarget.ForEvent(o);
                 if (marker == null)
                     return;
                 if (instance.discovered.TryGetValue(marker.InstanceId, out var tracked))
