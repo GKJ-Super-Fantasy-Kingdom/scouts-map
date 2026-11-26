@@ -1,0 +1,5 @@
+.analysis/
+bin/
+obj/
+dist/
+__pycache__/
