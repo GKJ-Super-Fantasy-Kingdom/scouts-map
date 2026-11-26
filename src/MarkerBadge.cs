@@ -5,21 +5,21 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    internal sealed class MarkerBadge : MonoBehaviour, IPointerDownHandler, IPointerClickHandler,
+    internal sealed class MarkerBadge : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler,
         IPointerEnterHandler, IPointerExitHandler, ICanvasRaycastFilter
     {
         private static readonly Color32 DisabledRim = new Color32(106, 117, 135, 255);
-        private static readonly Color32 DisabledFocus = new Color32(184, 195, 210, 255);
         private static readonly Color32 DisabledPlate = new Color32(105, 119, 144, 255);
         private static readonly Color32 DisabledSymbol = new Color32(190, 201, 213, 255);
-        private static readonly Color32 Focused = new Color32(255, 245, 220, 255);
         private Image plate;
         private Image rim;
+        private Image interactionEdge;
         private Image symbol;
         private MarkerArt art;
         private Sprite entitySprite;
         private Color32 accent;
         private bool hasHover;
+        private bool pressed;
         private Image arrow;
         private Image padlock;
         private Plugin owner;
@@ -41,6 +41,8 @@ namespace ScoutsMap
             badge.Rect = plate.rectTransform;
             badge.Rect.sizeDelta = Vector2.one * MarkerLayout.BadgeSize;
             badge.rim = Child(plate.transform, "State outline", frame.Rim, MarkerLayout.BadgeSize);
+            badge.interactionEdge = Child(plate.transform, "Interaction edge", frame.InteractionEdge, MarkerLayout.BadgeSize);
+            badge.interactionEdge.enabled = false;
             badge.entitySprite = target.EntitySprite;
             badge.symbol = Child(plate.transform, "Encounter", badge.entitySprite ?? art.Symbol(target.Icon, true), 19f);
             badge.accent = frame.Accent;
@@ -70,6 +72,8 @@ namespace ScoutsMap
             {
                 State = state;
                 bool available = state == MarkerState.Available;
+                if (!available)
+                    pressed = false;
                 plate.color = available ? Color.white : (Color)DisabledPlate;
                 symbol.color = available ? Color.white : (Color)DisabledSymbol;
                 symbol.sprite = entitySprite != null ? entitySprite : art.Symbol(Target.Icon, available);
@@ -87,23 +91,20 @@ namespace ScoutsMap
 
         internal void SetHover(bool value)
         {
-            if (hasHover == value)
+            if (hasHover == value && (value || !pressed))
                 return;
             hasHover = value;
+            if (!value)
+                pressed = false;
             RefreshOutline();
         }
 
         private void RefreshOutline()
         {
-            if (State == MarkerState.Available)
-            {
-                rim.color = hasHover ? Focused : accent;
-                arrow.color = rim.color;
-                return;
-            }
-
-            rim.color = hasHover ? DisabledFocus : DisabledRim;
-            arrow.color = DisabledRim;
+            bool available = State == MarkerState.Available;
+            rim.color = available ? accent : DisabledRim;
+            arrow.color = rim.color;
+            interactionEdge.enabled = available && (hasHover || pressed);
         }
 
         public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera) =>
@@ -111,8 +112,19 @@ namespace ScoutsMap
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (eventData.button == PointerEventData.InputButton.Left)
-                eventData.Use();
+            if (eventData.button != PointerEventData.InputButton.Left)
+                return;
+            eventData.Use();
+            pressed = State == MarkerState.Available && IsRaycastLocationValid(eventData.position, eventData.pressEventCamera);
+            RefreshOutline();
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (eventData.button != PointerEventData.InputButton.Left || !pressed)
+                return;
+            pressed = false;
+            RefreshOutline();
         }
 
         public void OnPointerClick(PointerEventData eventData)
@@ -124,8 +136,19 @@ namespace ScoutsMap
             owner.Focus(Target);
         }
 
-        public void OnPointerEnter(PointerEventData eventData) => owner.Hover(this);
-        public void OnPointerExit(PointerEventData eventData) => owner.EndHover(this);
-        private void OnDisable() => owner.EndHover(this);
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (IsRaycastLocationValid(eventData.position, eventData.enterEventCamera))
+                owner.Hover(this);
+        }
+
+        public void OnPointerExit(PointerEventData eventData) => Leave();
+        private void OnDisable() => Leave();
+
+        private void Leave()
+        {
+            SetHover(false);
+            owner.EndHover(this);
+        }
     }
 }

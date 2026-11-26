@@ -18,8 +18,8 @@ namespace ScoutsMap
 
         internal readonly Sprite Arrow, Lock, Panel;
         private enum FrameType { Route, Shop, Site, Person, Loot, Magic, Monster }
-        private readonly (Sprite Plate, Sprite Rim, Color32 Accent)[] frames =
-            new (Sprite, Sprite, Color32)[Enum.GetValues(typeof(FrameType)).Length];
+        private readonly (Sprite Plate, Sprite Rim, Sprite InteractionEdge, Color32 Accent)[] frames =
+            new (Sprite, Sprite, Sprite, Color32)[Enum.GetValues(typeof(FrameType)).Length];
         private readonly Sprite[,] symbols = new Sprite[Enum.GetValues(typeof(MarkerIcon)).Length, 2];
 
         internal MarkerArt()
@@ -148,7 +148,7 @@ namespace ScoutsMap
                 "...o+-o...", "..o+-o....", ".o+-o.....", "o++o......", ".oo.......");
         }
 
-        internal (Sprite Plate, Sprite Rim, Color32 Accent) Frame(MarkerIcon icon)
+        internal (Sprite Plate, Sprite Rim, Sprite InteractionEdge, Color32 Accent) Frame(MarkerIcon icon)
         {
             switch (icon)
             {
@@ -180,20 +180,51 @@ namespace ScoutsMap
 
         private void AddFrame(FrameType type, Color32 accent, Color32 body, params int[] widths)
         {
-            var rim = new string[widths.Length];
-            var plate = new string[widths.Length];
-            for (int row = 0; row < widths.Length; row++)
+            const int size = (int)MarkerLayout.BadgeSize;
+            var shape = new bool[size, size];
+            for (int row = 0; row < size; row++)
             {
-                int width = widths[row];
-                int interior = row == 0 || row == widths.Length - 1 ? 0 :
-                    Math.Min(width - 2, Math.Min(widths[row - 1], widths[row + 1]));
-                string padding = new string('.', (16 - width) / 2);
-                string edge = new string('o', (width - interior) / 2);
-                rim[row] = padding + edge + new string('.', interior) + edge + padding;
-                plate[row] = padding + edge + new string('b', interior) + edge + padding;
+                int margin = (size - 2 * widths[row / 2]) / 2;
+                for (int x = margin; x < size - margin; x++)
+                    shape[row, x] = true;
             }
+
+            // Keep the interaction edge and the dark inner edge within the resting footprint.
+            var inner = Inset(shape, size);
+            var face = Inset(inner, size);
+            var center = Inset(face, size);
+            var plate = new string[size];
+            var rim = new string[size];
+            var interaction = new string[size];
+            for (int row = 0; row < size; row++)
+            {
+                var plateRow = new char[size];
+                var rimRow = new char[size];
+                var interactionRow = new char[size];
+                for (int x = 0; x < size; x++)
+                {
+                    plateRow[x] = face[row, x] ? 'b' : shape[row, x] ? 'o' : '.';
+                    rimRow[x] = face[row, x] && !center[row, x] ? 'o' : '.';
+                    interactionRow[x] = shape[row, x] && !inner[row, x] ? 'o' : '.';
+                }
+                plate[row] = new string(plateRow);
+                rim[row] = new string(rimRow);
+                interaction[row] = new string(interactionRow);
+            }
+
             frames[(int)type] = (Draw(new Color32(10, 13, 18, 255), body, Color.white, Vector4.zero, plate),
-                Draw(Color.white, Color.clear, Color.white, Vector4.zero, rim), accent);
+                Draw(Color.white, Color.clear, Color.white, Vector4.zero, rim),
+                Draw(Color.white, Color.clear, Color.white, Vector4.zero, interaction), accent);
+        }
+
+        private static bool[,] Inset(bool[,] mask, int size)
+        {
+            var inner = new bool[size, size];
+            for (int row = 1; row < size - 1; row++)
+            for (int x = 1; x < size - 1; x++)
+                inner[row, x] = mask[row, x] && mask[row - 1, x] && mask[row + 1, x] &&
+                    mask[row, x - 1] && mask[row, x + 1];
+            return inner;
         }
 
         internal Sprite Symbol(MarkerIcon icon, bool available)

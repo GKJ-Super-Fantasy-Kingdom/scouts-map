@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Give actionable map badges a stepped white outer edge on mouse hover and press. Keep the dark inner edge and category color visible, and keep locked badges muted during hover.
+
 ## 0.4.1
 
 - Anchor on-screen badges to the drawn sprite so padded art and oversized interaction boxes no longer leave a large gap.
