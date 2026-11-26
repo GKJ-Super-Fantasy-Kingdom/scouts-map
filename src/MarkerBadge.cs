@@ -8,7 +8,6 @@ namespace ScoutsMap
     internal sealed class MarkerBadge : MonoBehaviour, IPointerDownHandler, IPointerClickHandler,
         IPointerEnterHandler, IPointerExitHandler, ICanvasRaycastFilter
     {
-        private static readonly Color32 Ready = new Color32(240, 194, 113, 255);
         private static readonly Color32 DisabledRim = new Color32(106, 117, 135, 255);
         private static readonly Color32 DisabledFocus = new Color32(184, 195, 210, 255);
         private static readonly Color32 DisabledPlate = new Color32(105, 119, 144, 255);
@@ -18,6 +17,8 @@ namespace ScoutsMap
         private Image rim;
         private Image symbol;
         private MarkerArt art;
+        private Sprite entitySprite;
+        private Color32 accent;
         private bool hasHover;
         private Image arrow;
         private Image padlock;
@@ -32,14 +33,17 @@ namespace ScoutsMap
             var go = new GameObject("Scout’s Map " + target.Kind, typeof(RectTransform), typeof(Image));
             go.SetActive(false);
             var plate = go.GetComponent<Image>();
-            plate.sprite = art.Plate;
+            var frame = art.Frame(target.Icon);
+            plate.sprite = frame.Plate;
             go.transform.SetParent(parent, false);
             var badge = go.AddComponent<MarkerBadge>();
             badge.plate = plate;
             badge.Rect = plate.rectTransform;
             badge.Rect.sizeDelta = Vector2.one * MarkerLayout.BadgeSize;
-            badge.rim = Child(plate.transform, "State outline", art.Rim, MarkerLayout.BadgeSize);
-            badge.symbol = Child(plate.transform, "Encounter", art.Symbol(target.Icon, true), 19f);
+            badge.rim = Child(plate.transform, "State outline", frame.Rim, MarkerLayout.BadgeSize);
+            badge.entitySprite = target.EntitySprite;
+            badge.symbol = Child(plate.transform, "Encounter", badge.entitySprite ?? art.Symbol(target.Icon, true), 19f);
+            badge.accent = frame.Accent;
             badge.arrow = Child(plate.transform, "Bearing", art.Arrow, 8f);
             badge.padlock = Child(plate.transform, "Unavailable", art.Lock, 9f);
             badge.padlock.rectTransform.anchoredPosition = new Vector2(9f, -9f);
@@ -68,7 +72,7 @@ namespace ScoutsMap
                 bool available = state == MarkerState.Available;
                 plate.color = available ? Color.white : (Color)DisabledPlate;
                 symbol.color = available ? Color.white : (Color)DisabledSymbol;
-                symbol.sprite = art.Symbol(Target.Icon, available);
+                symbol.sprite = entitySprite != null ? entitySprite : art.Symbol(Target.Icon, available);
                 RefreshOutline();
                 padlock.gameObject.SetActive(!available);
             }
@@ -93,7 +97,7 @@ namespace ScoutsMap
         {
             if (State == MarkerState.Available)
             {
-                rim.color = hasHover ? Focused : Ready;
+                rim.color = hasHover ? Focused : accent;
                 arrow.color = rim.color;
                 return;
             }

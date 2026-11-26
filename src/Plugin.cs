@@ -13,7 +13,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.2.0")]
+    [BepInPlugin(Id, "Scout's Map", "0.3.0")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -36,6 +36,8 @@ namespace ScoutsMap
         private bool unitCages;
         private bool scanSceneSites;
         private readonly List<MarkerPoint> occupied = new List<MarkerPoint>();
+        private readonly List<(MarkerTarget Marker, MarkerState State, Vector3 Target)> edgeMarkers =
+            new List<(MarkerTarget, MarkerState, Vector3)>();
         private readonly Vector3[] corners = new Vector3[4];
         private readonly List<RaycastResult> hits = new List<RaycastResult>();
 
@@ -122,6 +124,7 @@ namespace ScoutsMap
                 return;
 
             occupied.Clear();
+            edgeMarkers.Clear();
             for (int index = 0; index < markers.Count;)
             {
                 var marker = markers[index];
@@ -135,6 +138,14 @@ namespace ScoutsMap
                 }
                 DrawMarker(marker, frame, camera, scale);
                 index++;
+            }
+            foreach (var (marker, state, target) in edgeMarkers)
+            {
+                if (MarkerLayout.TryPlaceEdge(frame, target.x, target.y, Screen.width / 2f, Screen.height / 2f,
+                    scale, occupied, out var position))
+                    ShowMarker(marker, state, position, (Vector2)target - new Vector2(position.X, position.Y));
+                else
+                    HideMarker(marker);
             }
             DrawTooltip(frame, scale);
         }
@@ -231,17 +242,38 @@ namespace ScoutsMap
             if (state != MarkerState.Hidden)
             {
                 Vector3 target = camera.WorldToScreenPoint(marker.Position);
-                if (target.z > 0f && MarkerLayout.TryPlace(frame, target.x, target.y, Screen.width / 2f,
-                    Screen.height / 2f, scale, occupied, out var position))
+                if (target.z > 0f)
                 {
-                    var screen = new Vector2(position.X, position.Y);
-                    RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, uiCamera, out var local);
-                    if (marker.Badge == null)
-                        marker.Badge = MarkerBadge.Create(this, root, marker, art);
-                    marker.Badge.Show(state, local, (Vector2)target - screen);
+                    Vector3 top = camera.WorldToScreenPoint(marker.VisualTop);
+                    if ((camera.pixelRect.Contains(target) || camera.pixelRect.Contains(top)) && MarkerLayout.TryPlaceAbove(frame,
+                        new MarkerPoint(top.x, top.y), scale, out var position))
+                    {
+                        if (MarkerLayout.TryReserve(position, scale, occupied))
+                            ShowMarker(marker, state, position, Vector2.down);
+                        else
+                            HideMarker(marker);
+                    }
+                    else
+                    {
+                        edgeMarkers.Add((marker, state, target));
+                    }
                     return;
                 }
             }
+            HideMarker(marker);
+        }
+
+        private void ShowMarker(MarkerTarget marker, MarkerState state, MarkerPoint point, Vector2 bearing)
+        {
+            var screen = new Vector2(point.X, point.Y);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, uiCamera, out var local);
+            if (marker.Badge == null)
+                marker.Badge = MarkerBadge.Create(this, root, marker, art);
+            marker.Badge.Show(state, local, bearing);
+        }
+
+        private static void HideMarker(MarkerTarget marker)
+        {
             if (marker.Badge != null && marker.Badge.gameObject.activeSelf)
                 marker.Badge.gameObject.SetActive(false);
         }

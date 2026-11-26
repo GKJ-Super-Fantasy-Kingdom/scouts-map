@@ -19,9 +19,17 @@ foreach (var (scale, safe) in new[]
         new MarkerPoint(24, 24), 75, 60, scale, out _))
         throw new Exception("An oversized tooltip should not cover the HUD or its own marker.");
     occupied.Clear();
-    if (!MarkerLayout.TryPlace(safe, 2000, 1450, 640, 360, scale, occupied, out var first))
+    if (!MarkerLayout.TryPlaceAbove(safe, new MarkerPoint(640, 360), scale, out var centered) ||
+        centered.X != 640 || centered.Y - 16 * scale != 360 + 4 * scale ||
+        !MarkerLayout.TryReserve(centered, scale, occupied))
+        throw new Exception($"A visible target should have a centered badge above its sprite at {scale}x.");
+    if (MarkerLayout.TryReserve(centered, scale, occupied))
+        throw new Exception("Two targets must not get overlapping hit boxes.");
+    if (MarkerLayout.TryPlaceAbove(safe, new MarkerPoint(640, safe.Top), scale, out _))
+        throw new Exception("A target under the HUD cannot have an anchored badge there.");
+    if (!MarkerLayout.TryPlaceEdge(safe, 2000, 1450, 640, 360, scale, occupied, out var first))
         throw new Exception("An off-screen encounter should fit inside the native marker frame.");
-    if (!MarkerLayout.TryPlace(safe, 2000, 1450, 640, 360, scale, occupied, out var second))
+    if (!MarkerLayout.TryPlaceEdge(safe, 2000, 1450, 640, 360, scale, occupied, out var second))
         throw new Exception("Two encounters sharing a bearing should both be reachable.");
     foreach (var point in occupied)
     {
@@ -31,9 +39,7 @@ foreach (var (scale, safe) in new[]
     }
     if (Math.Abs(first.X - second.X) < 32 * scale && Math.Abs(first.Y - second.Y) < 32 * scale)
         throw new Exception($"Two click targets overlap at {scale}x.");
-    if (MarkerLayout.TryPlace(safe, 640, 360, 640, 360, scale, occupied, out _))
-        throw new Exception("A centered target should release its navigation badge.");
-    if (MarkerLayout.TryPlace(new MarkerBounds(0, 0, 18, 18), 2000, 1450, 640, 360, scale, occupied, out _))
+    if (MarkerLayout.TryPlaceEdge(new MarkerBounds(0, 0, 18, 18), 2000, 1450, 640, 360, scale, occupied, out _))
         throw new Exception("A viewport smaller than a badge must leave the HUD clear.");
 }
-Console.WriteLine("PASS marker clearance, separation and centered-target removal at 1x and 1.5x.");
+Console.WriteLine("PASS anchored alignment, HUD clearance, and marker separation at 1x and 1.5x.");

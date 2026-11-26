@@ -32,6 +32,26 @@ namespace ScoutsMap
     {
         internal const float BadgeSize = 32f;
 
+        internal static bool TryPlaceAbove(MarkerBounds frame, MarkerPoint top, float scale, out MarkerPoint result)
+        {
+            float half = BadgeSize * scale / 2f;
+            result = new MarkerPoint(top.X, top.Y + half + 4f * scale);
+            return result.X - half >= frame.Left && result.X + half <= frame.Right &&
+                result.Y - half >= frame.Bottom && result.Y + half <= frame.Top;
+        }
+
+        internal static bool TryReserve(MarkerPoint candidate, float scale, List<MarkerPoint> occupied)
+        {
+            float spacing = (BadgeSize + 4f) * scale;
+            foreach (var point in occupied)
+            {
+                if (Math.Abs(point.X - candidate.X) < spacing && Math.Abs(point.Y - candidate.Y) < spacing)
+                    return false;
+            }
+            occupied.Add(candidate);
+            return true;
+        }
+
         internal static bool TryPlaceTooltip(MarkerBounds frame, MarkerPoint badge,
             float width, float height, float scale, out MarkerPoint point)
         {
@@ -61,15 +81,10 @@ namespace ScoutsMap
             return true;
         }
 
-        internal static bool TryPlace(MarkerBounds frame, float targetX, float targetY,
+        internal static bool TryPlaceEdge(MarkerBounds frame, float targetX, float targetY,
             float centerX, float centerY, float scale, List<MarkerPoint> occupied, out MarkerPoint result)
         {
             result = default;
-            // The native marker frame leaves room for the HUD. Centered destinations need no arrow.
-            if (Math.Abs(targetX - centerX) < centerX * 0.53f &&
-                Math.Abs(targetY - centerY) < centerY * 0.48f)
-                return false;
-
             float half = BadgeSize * scale / 2f;
             float left = frame.Left + half;
             float right = frame.Right - half;
@@ -96,18 +111,8 @@ namespace ScoutsMap
                     : new MarkerPoint(x + offset, y);
                 if (candidate.X < left || candidate.X > right || candidate.Y < bottom || candidate.Y > top)
                     continue;
-                bool clear = true;
-                foreach (var point in occupied)
-                {
-                    if (Math.Abs(point.X - candidate.X) < spacing && Math.Abs(point.Y - candidate.Y) < spacing)
-                    {
-                        clear = false;
-                        break;
-                    }
-                }
-                if (!clear)
+                if (!TryReserve(candidate, scale, occupied))
                     continue;
-                occupied.Add(candidate);
                 result = candidate;
                 return true;
             }

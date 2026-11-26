@@ -7,7 +7,7 @@ namespace ScoutsMap
     internal enum MarkerIcon
     {
         Treasure, Hermit, Reward, Road, City, Water, Shop, Quest, Spell, Capture, Relic, Item,
-        Recruit, Hero, Pirate, Wonder, Witch, Hospital, Trade, Apple, Rare, Cage, Salvage
+        Recruit, Hero, Pirate, Wonder, Witch, Hospital, Trade, Apple, Rare, Cage, Salvage, Provoke
     }
 
     internal sealed class MarkerArt : IDisposable
@@ -15,7 +15,10 @@ namespace ScoutsMap
         private readonly List<Sprite> sprites = new List<Sprite>();
         private readonly List<Texture2D> textures = new List<Texture2D>();
 
-        internal readonly Sprite Plate, Rim, Arrow, Lock, Panel;
+        internal readonly Sprite Arrow, Lock, Panel;
+        private enum FrameType { Route, Shop, Site, Person, Loot, Magic, Monster }
+        private readonly (Sprite Plate, Sprite Rim, Color32 Accent)[] frames =
+            new (Sprite, Sprite, Color32)[Enum.GetValues(typeof(FrameType)).Length];
         private readonly Sprite[,] symbols = new Sprite[Enum.GetValues(typeof(MarkerIcon)).Length, 2];
 
         internal MarkerArt()
@@ -40,10 +43,21 @@ namespace ScoutsMap
                 ".obbbbbbbbbbbbo.",
                 "..oooooooooooo.."
             };
-            Plate = Draw(new Color32(10, 13, 18, 255), new Color32(36, 29, 32, 255), pearl, Vector4.zero, plate);
-            var rim = Array.ConvertAll(plate, row => row.Replace('b', '.'));
-            Rim = Draw(Color.white, Color.clear, pearl, Vector4.zero, rim);
             Panel = Draw(Color.white, new Color32(42, 31, 33, 255), pearl, Vector4.one * 4f, plate);
+            AddFrame(FrameType.Route, new Color32(226, 194, 146, 255), new Color32(51, 41, 36, 255),
+                12, 14, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 14, 12);
+            AddFrame(FrameType.Shop, new Color32(255, 177, 105, 255), new Color32(70, 36, 29, 255),
+                10, 12, 14, 16, 16, 16, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14);
+            AddFrame(FrameType.Site, new Color32(143, 216, 192, 255), new Color32(27, 58, 55, 255),
+                8, 12, 12, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16);
+            AddFrame(FrameType.Person, new Color32(166, 202, 253, 255), new Color32(32, 43, 69, 255),
+                10, 14, 16, 16, 16, 16, 16, 16, 16, 16, 16, 14, 12, 10, 8, 4);
+            AddFrame(FrameType.Loot, new Color32(251, 211, 110, 255), new Color32(56, 43, 26, 255),
+                8, 12, 14, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 14, 12, 8);
+            AddFrame(FrameType.Magic, new Color32(215, 173, 251, 255), new Color32(54, 35, 68, 255),
+                4, 8, 12, 14, 14, 16, 16, 16, 16, 16, 16, 14, 14, 12, 8, 4);
+            AddFrame(FrameType.Monster, new Color32(255, 141, 142, 255), new Color32(72, 35, 44, 255),
+                6, 10, 14, 16, 16, 16, 16, 16, 16, 16, 16, 16, 14, 12, 10, 6);
             Arrow = Draw(new Color32(15, 16, 22, 255), Color.clear, pearl, Vector4.zero,
                 new[] { "o......", "o#o....", "o###o..", "o#####o", "o###o..", "o#o....", "o......" });
             Lock = Draw(new Color32(15, 16, 22, 255), new Color32(45, 52, 64, 255), pearl, Vector4.zero,
@@ -125,6 +139,54 @@ namespace ScoutsMap
             Add(MarkerIcon.Salvage, new Color32(209, 158, 102, 255), new Color32(116, 68, 53, 255),
                 "..oooooo..", ".o##++##o.", "o###++###o", "oooooooooo", "o++--+--+o",
                 "o++--+--+o", "oooooooooo", ".o#+###+o.", "..oooooo..");
+            Add(MarkerIcon.Provoke, new Color32(226, 112, 103, 255), new Color32(135, 52, 62, 255),
+                "oo......oo", "o#o....o#o", "o#+oooo+#o", "o++++++++o", "o+#++++#+o",
+                "o++----++o", ".o+####+o.", "..o+##+o..", "...oooo...");
+        }
+
+        internal (Sprite Plate, Sprite Rim, Color32 Accent) Frame(MarkerIcon icon)
+        {
+            switch (icon)
+            {
+                case MarkerIcon.Road:
+                case MarkerIcon.City:
+                case MarkerIcon.Water: return frames[(int)FrameType.Route];
+                case MarkerIcon.Shop: return frames[(int)FrameType.Shop];
+                case MarkerIcon.Quest:
+                case MarkerIcon.Pirate:
+                case MarkerIcon.Wonder:
+                case MarkerIcon.Witch:
+                case MarkerIcon.Hospital:
+                case MarkerIcon.Trade: return frames[(int)FrameType.Site];
+                case MarkerIcon.Hermit:
+                case MarkerIcon.Recruit:
+                case MarkerIcon.Hero:
+                case MarkerIcon.Cage: return frames[(int)FrameType.Person];
+                case MarkerIcon.Reward:
+                case MarkerIcon.Spell:
+                case MarkerIcon.Relic: return frames[(int)FrameType.Magic];
+                case MarkerIcon.Provoke:
+                case MarkerIcon.Capture: return frames[(int)FrameType.Monster];
+                default: return frames[(int)FrameType.Loot];
+            }
+        }
+
+        private void AddFrame(FrameType type, Color32 accent, Color32 body, params int[] widths)
+        {
+            var rim = new string[widths.Length];
+            var plate = new string[widths.Length];
+            for (int row = 0; row < widths.Length; row++)
+            {
+                int width = widths[row];
+                int interior = row == 0 || row == widths.Length - 1 ? 0 :
+                    Math.Min(width - 2, Math.Min(widths[row - 1], widths[row + 1]));
+                string padding = new string('.', (16 - width) / 2);
+                string edge = new string('o', (width - interior) / 2);
+                rim[row] = padding + edge + new string('.', interior) + edge + padding;
+                plate[row] = padding + edge + new string('b', interior) + edge + padding;
+            }
+            frames[(int)type] = (Draw(new Color32(10, 13, 18, 255), body, Color.white, Vector4.zero, plate),
+                Draw(Color.white, Color.clear, Color.white, Vector4.zero, rim), accent);
         }
 
         internal Sprite Symbol(MarkerIcon icon, bool available) => symbols[(int)icon, available ? 0 : 1];

@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using SuperFantasyKingdom;
 using SuperFantasyKingdom.Clickable;
+using SuperFantasyKingdom.Spawner;
 using SuperFantasyKingdom.Spells;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -12,6 +13,10 @@ namespace ScoutsMap
     {
         private static readonly AccessTools.FieldRef<WorldSpell, SpellType> SpellId = Field<WorldSpell, SpellType>("m_SpellType");
         private static readonly AccessTools.FieldRef<WorldSpell, LocalizedString> SpellError = Field<WorldSpell, LocalizedString>("stringError");
+        private static readonly AccessTools.FieldRef<WorldMonster, LocalizedString> ProvokeAnother = Field<WorldMonster, LocalizedString>("provokeAnother");
+        private static readonly AccessTools.FieldRef<WorldMonster, LocalizedString> ProvokeImpossible = Field<WorldMonster, LocalizedString>("provokeImpossible");
+        private static readonly AccessTools.FieldRef<WorldMonster, LocalizedString> ProvokeDay = Field<WorldMonster, LocalizedString>("provokeDay");
+        private static readonly AccessTools.FieldRef<WorldMonster, LocalizedString> ProvokeRush = Field<WorldMonster, LocalizedString>("provokeRush");
         private static readonly AccessTools.FieldRef<WorldRelic, string> RelicOffer = Field<WorldRelic, string>("m_Relic");
         private static readonly AccessTools.FieldRef<WorldItem, string> ItemOffer = Field<WorldItem, string>("m_Relic");
         private static readonly AccessTools.FieldRef<DropRelic, string> RelicDrop = Field<DropRelic, string>("m_Identifier");
@@ -52,6 +57,7 @@ namespace ScoutsMap
                 case WorldHermit _: return MarkerIcon.Hermit;
                 case WorldRewardGiver _: return MarkerIcon.Reward;
                 case WorldSpell _: return MarkerIcon.Spell;
+                case WorldMonster _: return MarkerIcon.Provoke;
                 case Trap _: return MarkerIcon.Capture;
                 case DropRelic _:
                 case WorldRelic _: return MarkerIcon.Relic;
@@ -122,6 +128,10 @@ namespace ScoutsMap
                         return MarkerState.Hidden;
                     return SpellManager.Instance.CanAddSpell(spellData.IsCombatSpell())
                         ? MarkerState.Available : MarkerState.Restricted;
+                case WorldMonster monster:
+                    if (string.IsNullOrEmpty(monster.GetEntityType()))
+                        return MarkerState.Hidden;
+                    return ProvokeRestriction() == ProvokeBlock.None ? MarkerState.Available : MarkerState.Restricted;
                 case Trap trap:
                     if (string.IsNullOrEmpty(Captured(trap)))
                         return MarkerState.Hidden;
@@ -179,6 +189,7 @@ namespace ScoutsMap
                 BuildingQuest quest => quest.GetTitle(),
                 BuildingBoard _ => "Quest board",
                 WorldSpell spell => GetSpell(spell)?.GetTitle() ?? "Spell pickup",
+                WorldMonster monster => GetUnit(monster.GetEntityType())?.GetName() ?? "Monster",
                 Trap trap => GetUnit(Captured(trap))?.GetName() ?? "Captured monster",
                 DropRelic relic => GetRelic(RelicDrop(relic))?.GetTitle() ?? "Dropped relic",
                 WorldRelic relic => GetRelic(RelicOffer(relic))?.GetTitle() ?? "Relic offer",
@@ -211,6 +222,7 @@ namespace ScoutsMap
                 BuildingWorldPirates _ => "Ready to collect",
                 BuildingWorldWonder _ => "Ready to collect",
                 Trap _ => "Ready to collect",
+                WorldMonster monster => $"Provoke (level {monster.GetLevel()})",
                 WorldHero _ => "Ready to unlock",
                 UnitQuest _ => "Achievement complete",
                 _ => null
@@ -224,6 +236,15 @@ namespace ScoutsMap
             {
                 case WorldSpell spell:
                     return Localize(SpellError(spell), "No spell slot available");
+                case WorldMonster monster:
+                    return ProvokeRestriction() switch
+                    {
+                        ProvokeBlock.AlreadyProvoked => Localize(ProvokeAnother(monster), "Another monster is already provoked"),
+                        ProvokeBlock.BossDead => Localize(ProvokeImpossible(monster), "Provocation is unavailable"),
+                        ProvokeBlock.AfterWork => Localize(ProvokeDay(monster), "Provoke during work hours"),
+                        ProvokeBlock.Rush => Localize(ProvokeRush(monster), "Unavailable during a glory rush"),
+                        _ => "Provocation is unavailable"
+                    };
                 case WorldUnit unit:
                     string name = GetUnit(UnitOffer(unit))?.GetName() ?? "unit";
                     var unitError = UnitError(unit);
@@ -287,6 +308,39 @@ namespace ScoutsMap
             target.name.StartsWith("DestroyableSuperMetal", StringComparison.Ordinal);
 
         private static bool IsShowing(GameObject indicator) => indicator != null && indicator.activeInHierarchy;
+
+        private enum ProvokeBlock { None, AlreadyProvoked, BossDead, AfterWork, Rush, Unknown }
+
+        private static ProvokeBlock ProvokeRestriction()
+        {
+            if (ProvokedSpawner.Instance == null || BossSpawner.Instance == null || MonsterSpawner.Instance == null)
+                return ProvokeBlock.Unknown;
+            // Keep the same order as WorldMonster.AfterDialogue.
+            if (ProvokedSpawner.Instance.IsProvoked())
+                return ProvokeBlock.AlreadyProvoked;
+            if (BossSpawner.Instance.IsBossDead())
+                return ProvokeBlock.BossDead;
+            if (!DaytimeManager.Instance.IsWorkTime())
+                return ProvokeBlock.AfterWork;
+            return !DaytimeManager.Instance.IsMorningOrLoading() && MonsterSpawner.Instance.GetBonusGlory() > 0f
+                ? ProvokeBlock.Rush : ProvokeBlock.None;
+        }
+
+        internal static Sprite GetSymbol(ClickableSprite target) => target switch
+        {
+            WorldMonster monster => GetUnit(monster.GetEntityType())?.GetIcon(),
+            WorldSpell spell => GetSpell(spell)?.GetIcon(),
+            Trap trap => GetUnit(Captured(trap))?.GetIcon(),
+            DropRelic relic => GetRelic(RelicDrop(relic))?.GetIcon(),
+            WorldRelic relic => GetRelic(RelicOffer(relic))?.GetIcon(),
+            WorldItem item => GetItem(item)?.GetIcon(),
+            DropUnit drop => GetUnit(UnitDrop(drop))?.GetIcon(),
+            WorldUnit recruit => GetUnit(UnitOffer(recruit))?.GetIcon(),
+            WorldHero hero => GetHero(hero)?.GetIcon(),
+            UnitQuest cage => GetUnit(CageUnit(cage))?.GetIcon(),
+            _ => null
+        };
+
         private static SpellBase GetSpell(WorldSpell target) => SpellManager.Instance.GetSpell(SpellId(target));
         private static Item GetItem(WorldItem target) =>
             string.IsNullOrEmpty(ItemOffer(target)) ? null : AddressablesManager.Instance.GetItem(ItemOffer(target));

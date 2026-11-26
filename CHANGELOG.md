@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Anchor on-screen markers above their targets with a downward arrow.
+- Mark discovered monsters to provoke and show the native availability reason.
+- Add distinct marker frames and use native shop, building, and encounter icons where available.
+
 ## 0.2.0
 
 - Add markers for quest turn-ins, spell pickups, captured monsters, relic and item encounters, unit rewards, recruits, and hero unlocks.

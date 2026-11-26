@@ -56,8 +56,33 @@ namespace ScoutsMap
             _ => Kind
         };
         internal Vector3 Position => Clickable.transform.position;
+        internal Vector3 VisualTop
+        {
+            get
+            {
+                Vector3 top = Position;
+                var sprite = TargetSprite(Clickable);
+                if (sprite != null && sprite.enabled && sprite.sprite != null)
+                    top = new Vector3(sprite.bounds.center.x, sprite.bounds.max.y, top.z);
+                var collider = TargetCollider(Clickable);
+                if (collider != null && collider.isActiveAndEnabled)
+                    top.y = Mathf.Max(top.y, collider.bounds.max.y);
+                return top;
+            }
+        }
+
+        internal Sprite EntitySprite
+        {
+            get
+            {
+                if ((Clickable is BuildingWorld && roadArrow == null) || Clickable is BuildingBoard)
+                    return TargetSprite(Clickable)?.sprite;
+                return EncounterTargets.GetSymbol(Clickable);
+            }
+        }
+
         internal bool NeedsNativeMarker { get; }
-        internal bool Expired => Clickable == null || (NeedsNativeMarker && nativeMarker == null);
+        internal bool Expired => Clickable == null;
 
         private MarkerTarget(ClickableSprite clickable, MarkerIcon kind, bool needsNativeMarker = false,
             UIArrowRoad arrow = null, Road road = null)
@@ -122,7 +147,8 @@ namespace ScoutsMap
             if (!Clickable.isActiveAndEnabled)
                 return MarkerState.Hidden;
             // Native encounter arrows are already a discovery signal. Static sites must be uncovered.
-            if ((nativeMarker == null || Kind == MarkerIcon.Shop) && !IsExposed())
+            if (Kind == MarkerIcon.Provoke ? !IsUncovered()
+                : (nativeMarker == null || Kind == MarkerIcon.Shop) && !IsExposed())
                 return MarkerState.Hidden;
             if (Kind == MarkerIcon.Shop && DaytimeManager.Instance.CurrentDay() <= SetupDay)
             {
@@ -150,11 +176,14 @@ namespace ScoutsMap
 
         private bool IsExposed()
         {
-            var fog = RaceManager.Instance.GetFogTilemap();
-            if (fog == null || fog.HasTile(fog.WorldToCell(Position)))
-                return false;
             var sprite = TargetSprite(Clickable);
-            return sprite != null && sprite.enabled;
+            return IsUncovered() && sprite != null && sprite.enabled;
+        }
+
+        private bool IsUncovered()
+        {
+            var fog = RaceManager.Instance.GetFogTilemap();
+            return fog != null && !fog.HasTile(fog.WorldToCell(Position));
         }
 
         private MarkerState ReadRoad()
