@@ -9,6 +9,15 @@ foreach (var (scale, safe) in new[]
     (1.5f, new MarkerBounds(300, 165, 980, 510))
 })
 {
+    var corner = new MarkerPoint(safe.Left + 16 * scale, safe.Top - 16 * scale);
+    if (!MarkerLayout.TryPlaceTooltip(safe, corner, 200 * scale, 54 * scale, scale, out var tip) ||
+        tip.X - 100 * scale < corner.X + 16 * scale ||
+        tip.X + 100 * scale > safe.Right || tip.Y + 27 * scale > safe.Top ||
+        tip.Y - 27 * scale < safe.Bottom)
+        throw new Exception($"A wrapped hover reason should remain inside the HUD reserve at {scale}x.");
+    if (MarkerLayout.TryPlaceTooltip(new MarkerBounds(0, 0, 48, 48),
+        new MarkerPoint(24, 24), 75, 60, scale, out _))
+        throw new Exception("An oversized tooltip should not cover the HUD or its own marker.");
     occupied.Clear();
     if (!MarkerLayout.TryPlace(safe, 2000, 1450, 640, 360, scale, occupied, out var first))
         throw new Exception("An off-screen encounter should fit inside the native marker frame.");

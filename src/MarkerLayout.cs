@@ -32,6 +32,35 @@ namespace ScoutsMap
     {
         internal const float BadgeSize = 32f;
 
+        internal static bool TryPlaceTooltip(MarkerBounds frame, MarkerPoint badge,
+            float width, float height, float scale, out MarkerPoint point)
+        {
+            point = default;
+            float left = frame.Left + width / 2f;
+            float right = frame.Right - width / 2f;
+            float bottom = frame.Bottom + height / 2f;
+            float top = frame.Top - height / 2f;
+            if (left > right || bottom > top)
+                return false;
+
+            // Place the callout on the side with room, away from badges stacked along the same edge.
+            float gap = (BadgeSize / 2f + 7f) * scale;
+            float dx = width / 2f + gap;
+            float dy = height / 2f + gap;
+            float x = badge.X + (badge.X < (left + right) / 2f ? dx : -dx);
+            if (x >= left && x <= right)
+            {
+                point = new MarkerPoint(x, Math.Clamp(badge.Y, bottom, top));
+                return true;
+            }
+            float y = badge.Y + (badge.Y < (bottom + top) / 2f ? dy : -dy);
+            if (y < bottom || y > top)
+                return false;
+
+            point = new MarkerPoint(Math.Clamp(badge.X, left, right), y);
+            return true;
+        }
+
         internal static bool TryPlace(MarkerBounds frame, float targetX, float targetY,
             float centerX, float centerY, float scale, List<MarkerPoint> occupied, out MarkerPoint result)
         {

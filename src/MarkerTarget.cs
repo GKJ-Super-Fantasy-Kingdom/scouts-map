@@ -50,6 +50,16 @@ namespace ScoutsMap
         private readonly Road road;
 
         internal MarkerBadge Badge;
+        internal MarkerIcon Icon => Kind switch
+        {
+            MarkerKind.Treasure => MarkerIcon.Treasure,
+            MarkerKind.Hermit => MarkerIcon.Hermit,
+            MarkerKind.Reward => MarkerIcon.Reward,
+            MarkerKind.Road when road.city => MarkerIcon.City,
+            MarkerKind.Road when road.pier != null => MarkerIcon.Water,
+            MarkerKind.Road => MarkerIcon.Road,
+            _ => MarkerIcon.Shop
+        };
         internal Vector3 Position => Clickable.transform.position;
         internal bool Expired => Clickable == null ||
             (Kind < MarkerKind.Road && nativeMarker == null);
@@ -144,7 +154,7 @@ namespace ScoutsMap
                 ? MarkerState.Available : MarkerState.Cost;
         }
 
-        internal string GetTooltip(MarkerState state)
+        internal (string Title, string Reason) GetTooltip(MarkerState state)
         {
             string title;
             switch (Kind)
@@ -171,9 +181,9 @@ namespace ScoutsMap
                     ResourceData data = RaceManager.Instance.GetResourceData(cost.type);
                     reason = $"Requires {cost.amount} {(data != null ? data.GetName() : cost.type.ToString())}";
                     break;
-                default: return title;
+                default: return (title, null);
             }
-            return title + "\n<size=85%>" + reason + "</size>";
+            return (title, reason);
         }
 
         private int SetupDay => Clickable is BuildingShop shop ? ShopSetup(shop)

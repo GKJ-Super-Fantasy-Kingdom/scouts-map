@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.1.0")]
+    [BepInPlugin(Id, "Scout's Map", "0.1.1")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -37,6 +37,7 @@ namespace ScoutsMap
 
         private MarkerBadge hovered;
         private MarkerState tooltipState;
+        private float tooltipWidth;
         private RectTransform tooltip;
         private TextMeshProUGUI tooltipLabel;
 
@@ -126,7 +127,7 @@ namespace ScoutsMap
                 DrawMarker(marker, frame, camera, scale);
                 index++;
             }
-            DrawTooltip();
+            DrawTooltip(frame, scale);
         }
 
         private bool BindFrame()
@@ -225,7 +226,10 @@ namespace ScoutsMap
 
         internal void Hover(MarkerBadge badge)
         {
+            if (hovered != null && hovered != badge)
+                hovered.SetHover(false);
             hovered = badge;
+            hovered.SetHover(true);
             tooltipState = MarkerState.Hidden;
         }
 
@@ -233,12 +237,13 @@ namespace ScoutsMap
         {
             if (hovered != badge)
                 return;
+            badge.SetHover(false);
             hovered = null;
             if (tooltip != null)
                 tooltip.gameObject.SetActive(false);
         }
 
-        private void DrawTooltip()
+        private void DrawTooltip(MarkerBounds frame, float scale)
         {
             if (hovered == null)
                 return;
@@ -256,39 +261,53 @@ namespace ScoutsMap
                     return;
                 var background = new GameObject("Scout's Map tooltip", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
                 background.transform.SetParent(root, false);
-                background.color = new Color32(20, 25, 32, 245);
+                background.sprite = art.Panel;
+                background.type = Image.Type.Sliced;
+                background.pixelsPerUnitMultiplier = 2f;
+                background.color = new Color32(232, 216, 191, 255);
                 background.raycastTarget = false;
                 tooltip = background.rectTransform;
                 tooltipLabel = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
                 tooltipLabel.transform.SetParent(tooltip, false);
                 tooltipLabel.font = native.font;
                 tooltipLabel.spriteAsset = native.spriteAsset;
-                tooltipLabel.fontSize = 14f;
+                tooltipLabel.fontSize = 17f;
                 tooltipLabel.color = new Color32(255, 243, 213, 255);
-                tooltipLabel.alignment = TextAlignmentOptions.Center;
+                tooltipLabel.alignment = TextAlignmentOptions.MidlineLeft;
                 tooltipLabel.raycastTarget = false;
                 tooltipLabel.rectTransform.anchorMin = Vector2.zero;
                 tooltipLabel.rectTransform.anchorMax = Vector2.one;
-                tooltipLabel.rectTransform.offsetMin = new Vector2(8f, 4f);
-                tooltipLabel.rectTransform.offsetMax = new Vector2(-8f, -4f);
+                tooltipLabel.rectTransform.offsetMin = new Vector2(10f, 6f);
+                tooltipLabel.rectTransform.offsetMax = new Vector2(-10f, -6f);
                 tooltipState = MarkerState.Hidden;
             }
-            if (hovered.State != tooltipState)
+            float maxWidth = Mathf.Min(264f, (frame.Right - frame.Left) / scale - 68f);
+            if (maxWidth < 70f)
+            {
+                tooltip.gameObject.SetActive(false);
+                return;
+            }
+            if (hovered.State != tooltipState || !Mathf.Approximately(tooltipWidth, maxWidth))
             {
                 tooltipState = hovered.State;
-                tooltipLabel.text = hovered.Target.GetTooltip(tooltipState);
-                float maxWidth = Mathf.Min(250f, root.rect.width - 24f);
-                float width = Mathf.Clamp(tooltipLabel.GetPreferredValues().x, 60f, maxWidth);
+                tooltipWidth = maxWidth;
+                var (title, reason) = hovered.Target.GetTooltip(tooltipState);
+                tooltipLabel.text = reason == null ? title : title + "\n<size=15><color=#FFD994>" + reason + "</color></size>";
+                float width = Mathf.Clamp(tooltipLabel.GetPreferredValues().x + 1f, 70f, maxWidth);
                 float height = tooltipLabel.GetPreferredValues(tooltipLabel.text, width, 0f).y;
-                tooltip.sizeDelta = new Vector2(width + 16f, height + 8f);
+                tooltip.sizeDelta = new Vector2(width + 20f, height + 12f);
             }
-            Vector2 position = hovered.Rect.anchoredPosition;
-            float halfWidth = tooltip.sizeDelta.x / 2f;
-            float halfHeight = tooltip.sizeDelta.y / 2f;
-            float distance = MarkerLayout.BadgeSize / 2f + 6f + halfHeight;
-            position.x = Mathf.Clamp(position.x, root.rect.xMin + halfWidth, root.rect.xMax - halfWidth);
-            position.y += position.y > 0f ? -distance : distance;
-            tooltip.anchoredPosition = position;
+
+            Vector2 badge = RectTransformUtility.WorldToScreenPoint(uiCamera, hovered.Rect.position);
+            if (!MarkerLayout.TryPlaceTooltip(frame, new MarkerPoint(badge.x, badge.y), tooltip.sizeDelta.x * scale,
+                tooltip.sizeDelta.y * scale, scale, out var position))
+            {
+                tooltip.gameObject.SetActive(false);
+                return;
+            }
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, new Vector2(position.X, position.Y),
+                uiCamera, out var local);
+            tooltip.anchoredPosition = local;
             tooltip.SetAsLastSibling();
             if (!tooltip.gameObject.activeSelf)
                 tooltip.gameObject.SetActive(true);
