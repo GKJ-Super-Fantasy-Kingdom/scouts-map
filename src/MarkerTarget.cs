@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HarmonyLib;
 using SuperFantasyKingdom;
 using SuperFantasyKingdom.Clickable;
@@ -65,20 +66,44 @@ namespace ScoutsMap
             _ => Kind
         };
         internal Vector3 Position => Clickable.transform.position;
-        internal Vector3 VisualTop
+        internal Vector3 GetVisualTop(Dictionary<Sprite, Bounds> spriteMeshBounds)
         {
-            get
+            var renderer = SpriteRenderer;
+            if (renderer != null && renderer.enabled && renderer.gameObject.activeInHierarchy && renderer.sprite != null)
             {
-                Vector3 top = Position;
-                var sprite = SpriteRenderer;
-                if (sprite != null && sprite.enabled && sprite.sprite != null)
-                    top = new Vector3(sprite.bounds.center.x, sprite.bounds.max.y, top.z);
-                var collider = TargetCollider(interaction);
-                if (collider != null && collider.isActiveAndEnabled)
-                    top.y = Mathf.Max(top.y, collider.bounds.max.y);
+                if (renderer.drawMode != SpriteDrawMode.Simple)
+                    return TopCenter(renderer.bounds, Position.z);
+
+                var sprite = renderer.sprite;
+                if (!spriteMeshBounds.TryGetValue(sprite, out var mesh))
+                {
+                    // Import bounds can include padding around a much smaller drawn sprite.
+                    var vertices = sprite.vertices;
+                    mesh = vertices.Length == 0 ? sprite.bounds : new Bounds(vertices[0], Vector3.zero);
+                    for (int i = 1; i < vertices.Length; i++)
+                        mesh.Encapsulate(vertices[i]);
+                    spriteMeshBounds.Add(sprite, mesh);
+                }
+
+                var center = mesh.center;
+                if (renderer.flipX)
+                    center.x = -center.x;
+                if (renderer.flipY)
+                    center.y = -center.y;
+                var transform = renderer.transform;
+                Vector3 top = transform.TransformPoint(center);
+                top.y += Mathf.Abs(transform.TransformVector(Vector3.right * mesh.extents.x).y) +
+                    Mathf.Abs(transform.TransformVector(Vector3.up * mesh.extents.y).y);
+                top.z = Position.z;
                 return top;
             }
+
+            var collider = TargetCollider(interaction);
+            return collider != null && collider.isActiveAndEnabled ? TopCenter(collider.bounds, Position.z) : Position;
         }
+
+        private static Vector3 TopCenter(Bounds bounds, float z) =>
+            new Vector3(bounds.center.x, bounds.max.y, z);
 
         internal Sprite EntitySprite
         {

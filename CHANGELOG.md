@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Anchor on-screen badges to the drawn sprite so padded art and oversized interaction boxes no longer leave a large gap.
+
 ## 0.4.0
 
 - Mark open quests, restorable kingdom sites, Black Markets, Trading Posts, and additional discovered world services.

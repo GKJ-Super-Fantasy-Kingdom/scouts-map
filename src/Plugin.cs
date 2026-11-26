@@ -13,7 +13,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.4.0")]
+    [BepInPlugin(Id, "Scout's Map", "0.4.1")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -35,6 +35,7 @@ namespace ScoutsMap
         private MarkerGroups groups;
         private bool scanSceneSites;
         private readonly List<MarkerPoint> occupied = new List<MarkerPoint>();
+        private readonly Dictionary<Sprite, Bounds> spriteMeshBounds = new Dictionary<Sprite, Bounds>();
         private readonly List<(MarkerTarget Marker, MarkerState State, Vector3 Target)> edgeMarkers =
             new List<(MarkerTarget, MarkerState, Vector3)>();
         private readonly Vector3[] corners = new Vector3[4];
@@ -171,6 +172,7 @@ namespace ScoutsMap
             root.offsetMin = root.offsetMax = Vector2.zero;
             rescanAt = 0f;
             scanSceneSites = true;
+            spriteMeshBounds.Clear();
             return true;
         }
 
@@ -253,7 +255,7 @@ namespace ScoutsMap
                 Vector3 target = camera.WorldToScreenPoint(marker.Position);
                 if (target.z > 0f)
                 {
-                    Vector3 top = camera.WorldToScreenPoint(marker.VisualTop);
+                    Vector3 top = camera.WorldToScreenPoint(marker.GetVisualTop(spriteMeshBounds));
                     if ((camera.pixelRect.Contains(target) || camera.pixelRect.Contains(top)) && MarkerLayout.TryPlaceAbove(frame,
                         new MarkerPoint(top.x, top.y), scale, out var position))
                     {
