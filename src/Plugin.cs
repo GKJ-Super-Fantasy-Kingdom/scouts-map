@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using BepInEx;
 using HarmonyLib;
 using SuperFantasyKingdom;
+using SuperFantasyKingdom.Clickable;
 using SuperFantasyKingdom.UI;
 using TMPro;
 using UnityEngine;
@@ -12,7 +13,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.1.2")]
+    [BepInPlugin(Id, "Scout's Map", "0.2.0")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -30,7 +31,10 @@ namespace ScoutsMap
         private Camera uiCamera;
         private float rescanAt;
         private readonly List<MarkerTarget> markers = new List<MarkerTarget>();
-        private readonly HashSet<int> discovered = new HashSet<int>();
+        private readonly Dictionary<int, MarkerTarget> discovered = new Dictionary<int, MarkerTarget>();
+        private bool rareFinds;
+        private bool unitCages;
+        private bool scanSceneSites;
         private readonly List<MarkerPoint> occupied = new List<MarkerPoint>();
         private readonly Vector3[] corners = new Vector3[4];
         private readonly List<RaycastResult> hits = new List<RaycastResult>();
@@ -38,6 +42,7 @@ namespace ScoutsMap
         private MarkerBadge hovered;
         private MarkerState tooltipState;
         private float tooltipWidth;
+        private float tooltipRefreshAt;
         private RectTransform tooltip;
         private TextMeshProUGUI tooltipLabel;
 
@@ -46,6 +51,11 @@ namespace ScoutsMap
             harmony = new Harmony(Id);
             try
             {
+                rareFinds = Config.Bind("Markers", "RareFinds", false,
+                    "Show XP apples, shards, Super Metal and high-value salvage. Restart the game after changing.").Value;
+                unitCages = Config.Bind("Markers", "UnitCages", false,
+                    "Show discovered achievement-based unit cages. Restart the game after changing.").Value;
+                System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(typeof(EncounterTargets).TypeHandle);
                 art = new MarkerArt();
                 harmony.PatchAll(typeof(Plugin).Assembly);
                 instance = this;
@@ -119,8 +129,7 @@ namespace ScoutsMap
                 {
                     if (marker.Badge != null)
                         Destroy(marker.Badge.gameObject);
-                    if (marker.Kind >= MarkerKind.Road)
-                        discovered.Remove(marker.InstanceId);
+                    discovered.Remove(marker.InstanceId);
                     markers.RemoveAt(index);
                     continue;
                 }
@@ -153,6 +162,7 @@ namespace ScoutsMap
             root.anchorMax = Vector2.one;
             root.offsetMin = root.offsetMax = Vector2.zero;
             rescanAt = 0f;
+            scanSceneSites = true;
             return true;
         }
 
@@ -173,7 +183,7 @@ namespace ScoutsMap
                 foreach (Transform child in UIManager.Instance.GetRoadButtons())
                 {
                     if (child.TryGetComponent(out UIArrowRoad arrow) &&
-                        !discovered.Contains(arrow.GetInstanceID()))
+                        !discovered.ContainsKey(arrow.GetInstanceID()))
                         Track(MarkerTarget.ForRoad(arrow, RoadBuilder.Instance));
                 }
             }
@@ -181,25 +191,43 @@ namespace ScoutsMap
             {
                 foreach (var building in WorldManager.Instance.GetBuildingsWorld())
                 {
-                    if (building != null && !discovered.Contains(building.GetInstanceID()))
-                        Track(MarkerTarget.ForShop(building));
+                    if (building != null && !discovered.ContainsKey(building.GetInstanceID()))
+                        Track(MarkerTarget.ForSite(building, unitCages));
+                }
+                TrackSite(WorldManager.Instance.GetWorldHero());
+            }
+            if (scanSceneSites)
+            {
+                scanSceneSites = false;
+                foreach (var board in FindObjectsOfType<BuildingBoard>(true))
+                    TrackSite(board);
+                if (unitCages)
+                {
+                    foreach (var cage in FindObjectsOfType<UnitQuest>(true))
+                        TrackSite(cage);
                 }
             }
+        }
+
+        private void TrackSite(ClickableSprite target)
+        {
+            if (target != null && !discovered.ContainsKey(target.GetInstanceID()))
+                Track(MarkerTarget.ForSite(target, unitCages));
         }
 
         private void Track(MarkerTarget target)
         {
             if (target == null)
                 return;
-            discovered.Add(target.InstanceId);
+            discovered.Add(target.InstanceId, target);
             markers.Add(target);
         }
 
         private void DrawMarker(MarkerTarget marker, MarkerBounds frame, Camera camera, float scale)
         {
-            marker.ReplaceNativeImage(true);
-            MarkerState state = marker.Kind < MarkerKind.Road && host.alpha <= 0.01f
+            MarkerState state = marker.NeedsNativeMarker && host.alpha <= 0.01f
                 ? MarkerState.Hidden : marker.Read();
+            marker.ReplaceNativeImage(marker.NeedsNativeMarker || state != MarkerState.Hidden);
             if (state != MarkerState.Hidden)
             {
                 Vector3 target = camera.WorldToScreenPoint(marker.Position);
@@ -287,10 +315,12 @@ namespace ScoutsMap
                 tooltip.gameObject.SetActive(false);
                 return;
             }
-            if (hovered.State != tooltipState || !Mathf.Approximately(tooltipWidth, maxWidth))
+            if (hovered.State != tooltipState || !Mathf.Approximately(tooltipWidth, maxWidth) ||
+                Time.unscaledTime >= tooltipRefreshAt)
             {
                 tooltipState = hovered.State;
                 tooltipWidth = maxWidth;
+                tooltipRefreshAt = Time.unscaledTime + 0.25f;
                 var (title, reason) = hovered.Target.GetTooltip(tooltipState);
                 tooltipLabel.text = reason == null ? title : title + "\n<size=15><color=#FFD994>" + reason + "</color></size>";
                 float width = Mathf.Clamp(tooltipLabel.GetPreferredValues().x + 1f, 70f, maxWidth);
@@ -331,8 +361,19 @@ namespace ScoutsMap
             {
                 if (instance == null || o == null || icon != null || ___image == null)
                     return;
-                var marker = MarkerTarget.ForEvent(__instance, ___image, o);
-                if (marker != null)
+                var marker = MarkerTarget.ForEvent(o, instance.rareFinds, instance.unitCages);
+                if (marker == null)
+                    return;
+                if (instance.discovered.TryGetValue(marker.InstanceId, out var tracked))
+                {
+                    tracked.AttachNativeMarker(__instance, ___image);
+                    return;
+                }
+                marker.AttachNativeMarker(__instance, ___image);
+                instance.discovered.Add(marker.InstanceId, marker);
+                if (marker.Kind == MarkerIcon.Apple || marker.Kind == MarkerIcon.Rare || marker.Kind == MarkerIcon.Salvage)
+                    instance.markers.Add(marker);
+                else
                     instance.markers.Insert(0, marker);
             }
         }

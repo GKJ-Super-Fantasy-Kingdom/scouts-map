@@ -4,7 +4,11 @@ using UnityEngine;
 
 namespace ScoutsMap
 {
-    internal enum MarkerIcon { Treasure, Hermit, Reward, Road, City, Water, Shop }
+    internal enum MarkerIcon
+    {
+        Treasure, Hermit, Reward, Road, City, Water, Shop, Quest, Spell, Capture, Relic, Item,
+        Recruit, Hero, Pirate, Wonder, Witch, Hospital, Trade, Apple, Rare, Cage, Salvage
+    }
 
     internal sealed class MarkerArt : IDisposable
     {
@@ -12,7 +16,7 @@ namespace ScoutsMap
         private readonly List<Texture2D> textures = new List<Texture2D>();
 
         internal readonly Sprite Plate, Rim, Arrow, Lock, Panel;
-        private readonly Sprite[,] symbols = new Sprite[7, 2];
+        private readonly Sprite[,] symbols = new Sprite[Enum.GetValues(typeof(MarkerIcon)).Length, 2];
 
         internal MarkerArt()
         {
@@ -73,6 +77,54 @@ namespace ScoutsMap
                 "..oooooooo..", ".o#++#++#+o.", "o##+##+##++o", "o++-++-++--o",
                 ".oooooooooo.", ".o#++++++#o.", ".o+o####o+o.", ".o+o##o#o+o.",
                 ".o+o####o+o.", ".oooooooooo.");
+            Add(MarkerIcon.Quest, new Color32(218, 184, 115, 255), new Color32(134, 96, 64, 255),
+                "..ooooooo.", "..o####oo.", "..o#+++o..", "..o###+o..", "..o++++o..",
+                "..o###+o..", "..o++++o..", ".oo++++o..", "o#######o.", ".ooooooo..");
+            Add(MarkerIcon.Spell, new Color32(121, 169, 247, 255), new Color32(61, 94, 163, 255),
+                ".....o....", "....o#o.o.", "..o.o##oo.", "...oo#+o..", "..o##+o...",
+                "...oo+o...", ".oo#oo....", "o##o......", "oooo......");
+            Add(MarkerIcon.Capture, new Color32(143, 199, 129, 255), new Color32(59, 108, 77, 255),
+                "...oooo...", "..o#..#o..", ".oo++++oo.", "o########o", "o#o+o+o#o.",
+                "o#o#o#o#o.", "o#o#o#o#o.", "o++++++++o", ".oooooooo.");
+            Add(MarkerIcon.Relic, new Color32(217, 159, 240, 255), new Color32(122, 74, 171, 255),
+                "..oooooo..", ".o######o.", "o###++###o", "o##+--+##o", ".o++##++o.",
+                "..o####o..", "...o##o...", "...o++o...", "....oo....");
+            Add(MarkerIcon.Item, new Color32(152, 204, 225, 255), new Color32(65, 110, 139, 255),
+                "...oooo...", "...o##o...", "...o##o...", "..oo++oo..", ".o##+++oo.",
+                "o##+++++-o", "o#++#+++-o", "o+--+---+o", ".oooooooo.");
+            Add(MarkerIcon.Recruit, new Color32(177, 189, 217, 255), new Color32(83, 102, 139, 255),
+                "...oooo...", "..o####o..", ".o##++++o.", "o##++++--o", "o#+o++o+-o",
+                "o#++++++-o", ".o++##++o.", "..o++++o..", "...oooo...");
+            Add(MarkerIcon.Hero, new Color32(238, 179, 94, 255), new Color32(163, 94, 50, 255),
+                "o....o...o", "o#..o#o.#o", "o#oo#++o#o", "o###+#++#o", "o++#+++#+o",
+                ".o++++++o.", ".o######o.", "..oooooo..");
+            Add(MarkerIcon.Pirate, new Color32(196, 203, 200, 255), new Color32(89, 109, 107, 255),
+                "..ooooooo.", "..o#####oo", "..o#o#o#o.", "..o#####oo", "..o++o++o.",
+                "..ooooooo.", "..o.......", "..o.......", ".ooo......");
+            Add(MarkerIcon.Wonder, new Color32(239, 186, 115, 255), new Color32(147, 85, 83, 255),
+                "....oo....", "...o##o...", "..o####o..", ".o######o.", "o+######+o",
+                "oooo+oooo.", ".o+#++#+o.", ".o+#++#+o.", "o########o", "oooooooooo");
+            Add(MarkerIcon.Witch, new Color32(247, 140, 93, 255), new Color32(169, 60, 61, 255),
+                "....o.....", "...o#o....", "...o#+o...", "..o###+o..", ".o##+++-o.",
+                "o###o++--o", "o+###+---o", ".o++++++o.", "..oooooo..");
+            Add(MarkerIcon.Hospital, new Color32(228, 129, 125, 255), new Color32(151, 57, 78, 255),
+                "..oo..oo..", ".o##oo##o.", "o########o", "o###++###o", "o#++++++#o",
+                ".o##++##o.", "..o####o..", "...o##o...", "....oo....");
+            Add(MarkerIcon.Trade, new Color32(145, 210, 186, 255), new Color32(58, 124, 122, 255),
+                "......o...", ".....o#o..", ".ooooo##o.", "o#######oo", ".ooooo##o.",
+                "..o..o#o..", ".o#o..o...", "o##oooooo.", "oo#######o", ".o##ooooo.", "..oo......");
+            Add(MarkerIcon.Apple, new Color32(235, 125, 94, 255), new Color32(147, 53, 49, 255),
+                ".....oo...", "....o++o..", "....o#o...", "..ooo#oo..", ".o##+##+o.",
+                "o##+++++-o", "o#+++++--o", "o+++++---o", ".o++-+++o.", "..oooooo..");
+            Add(MarkerIcon.Rare, new Color32(115, 212, 228, 255), new Color32(58, 113, 163, 255),
+                "...oooo...", "..o####o..", ".o####+oo.", "o##++--#+o", "o#++--+#+o",
+                ".o+--++#o.", "..o--+oo..", "...oooo...");
+            Add(MarkerIcon.Cage, new Color32(195, 164, 136, 255), new Color32(98, 78, 83, 255),
+                "...oooo...", "..o####o..", ".o++++++o.", "o#o#o#o#oo", "o#o#o#o#oo",
+                "o#o#o#o#oo", "o#++++++oo", ".oooooooo.");
+            Add(MarkerIcon.Salvage, new Color32(209, 158, 102, 255), new Color32(116, 68, 53, 255),
+                "..oooooo..", ".o##++##o.", "o###++###o", "oooooooooo", "o++--+--+o",
+                "o++--+--+o", "oooooooooo", ".o#+###+o.", "..oooooo..");
         }
 
         internal Sprite Symbol(MarkerIcon icon, bool available) => symbols[(int)icon, available ? 0 : 1];

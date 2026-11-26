@@ -1,18 +1,23 @@
 # Scout’s Map
 
-Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [package README](thunderstore/README.md) for controls and marker behavior. Version 0.1.2 is a local review build.
+Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [package README](thunderstore/README.md) for controls and the optional marker settings. Version 0.2.0 is a local review build.
 
-## First build coverage
+## Discovery and availability
 
-| Destination | Native discovery and lifecycle | Availability |
-| --- | --- | --- |
-| Road, city or water expansion | Uses an existing `UIArrowRoad` and its registered road. The road must have parts left and its arrow must be active in the current mode. | Checks day, glory, kingdom level, stars and affordability. Where the game supplies a localized failure message, the tooltip uses it. |
-| Shops | Uses native registered `BuildingShop` and `BuildingObjectShop` targets. Requires an uncovered tile and a visible native sprite. | A visible setup countdown shows a locked marker. An interactable shop with an enabled collider shows an available marker. Other closed or sold-out shops are omitted. |
-| Treasure, hermits and world rewards | Enhances native, untyped `UIMarker` arrows for `DropChest`, `WorldHermit` and `WorldRewardGiver`. | Shows the badge while the target is interactable and its native marker exists. |
+| Destination | Native signal |
+| --- | --- |
+| Road, city, and water expansion | Existing road arrow and remaining road parts. Uses the game’s day, glory, kingdom level, stars, and affordability checks. |
+| Shops | Registered building on an uncovered tile with a visible sprite. Uses the visible setup countdown and interactability. Sold-out or closed shops are omitted. |
+| Chests, hermits, world rewards, spells, traps, offers, drops, and recruits | The stock world marker announces the encounter. The target must remain active. Prices, spell slots, and roster restrictions follow the game’s current rules. |
+| Hero encounters | The game’s marker or the revealed hero’s active position. Remaining kills distinguish a quest in progress from an unlock ready to claim. |
+| Quest sites and boards | An uncovered, interactable site or a native marker, with a finished objective and a reward still to claim. |
+| Pirate returns and Wonder rewards | A returned pirate expedition or the Wonder’s reward-ready indicator. The badge clears once the reward is collected. |
+| Witch bonfires, hospitals, and trades | A revealed, interactable site. Star, eligible unit, and resource checks determine whether to lock the badge. |
+| Optional rare finds, coastal salvage, and cages | Stock pickup markers for rare finds and selected salvage. Cages require a revealed site and the game’s hint or achievement-ready indicator. |
 
-Some native event arrows disappear as soon as the player hovers over the destination. Scout’s Map follows that lifetime. When a destination is near the center or there is no clear space in the marker frame, the Scout’s Map badge is hidden.
+The mod follows the stock lifetime of transient native arrows. An available destination near the screen center needs no navigation badge. When the HUD-safe frame fills up, additional badges wait for room.
 
-Other events retain their original behavior. General road-locked buildings, specialized NPC calls and offers, quest steps, voyages without a native road arrow, and other collectible types need their own discovery and eligibility checks.
+Routine resources, decorative objects, undiscovered content, and native villain portraits keep their stock UI.
 
 ## Build and import locally
 
@@ -21,7 +26,8 @@ Use the installed Windows game and a BepInEx 5 profile. The project defaults to 
 ```powershell
 dotnet build ScoutsMap.csproj -c Release
 dotnet run --project checks/LayoutChecks.csproj -c Release
+./checks/CheckNativeFields.ps1
 python package.py
 ```
 
-Import `dist/ScoutsMap-0.1.2.zip` as a local mod in Thunderstore Mod Manager. The archive contains the plugin and package metadata. The build references game and loader DLLs from the installed dependencies.
+Import `dist/ScoutsMap-0.2.0.zip` as a local mod in Thunderstore Mod Manager. The archive contains the plugin and package metadata. The build references game and loader DLLs from the installed dependencies.

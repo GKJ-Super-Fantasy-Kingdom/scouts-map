@@ -1,6 +1,6 @@
 {
   "name": "ScoutsMap",
-  "version_number": "0.1.2",
+  "version_number": "0.2.0",
   "website_url": "https://github.com/GKJ-Super-Fantasy-Kingdom/scouts-map",
   "description": "Find discovered roads, shops and world events. Click an available arrow to center the camera on it.",
   "dependencies": [

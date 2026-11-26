@@ -1,7 +1,16 @@
 # Scout’s Map
 
-Scout’s Map gives discovered roads, shops, treasure chests, hermits and world rewards distinct illustrated arrows. Hover to highlight a marker and read its destination name. Left-click an available arrow to center the camera within the game’s normal map limits. Use the destination’s own controls to open a chest, shop or build a road.
+Scout’s Map adds illustrated markers for discovered destinations and encounters. Hover to read the destination name, price, or current requirement. Left-click an available marker to center the camera. Use the game’s interaction at the destination to open, buy, recruit, or claim.
 
-A dark badge with a visible lock marks a known destination that is temporarily unavailable. Hover to read the reason below its name when the game provides one. For roads, enter the game’s expansion mode to see the roads the game only reveals there. Shop arrows use the visible setup countdown. Sold-out and closed shops drop off the map until the game makes them interactable again.
+A dark badge with a visible lock indicates a temporary block. Shop setup timers, unaffordable offers, unavailable spell slots, and unfinished hero requirements can all produce locked markers. The position of an undiscovered static destination stays hidden.
 
-The arrows use the game’s marker frame and UI scaling. They also display with the controller active. Scout’s Map adds no controller bindings. It uses the world-event markers the game creates for supported pickups and NPCs and observes when the game removes those markers. The mod stores no save data.
+## Markers
+
+- **Expansions and shops** include roads, city expansion, water access, and visible shops.
+- **World encounters** include chests, hermits, rewards, spells, captured monsters, relic drops, item and relic offers, unit rewards, recruits, and hero encounters.
+- **Ready to collect** includes quest and board turn-ins, pirate returns, and Wonder rewards.
+- **Services** include Witch bonfires, hospitals, and resource trade sites, such as the Undead Alchemist.
+
+Optional markers can be enabled in `BepInEx/config/gkj.scoutsmap.cfg` under `[Markers]`. Set `RareFinds = true` for XP apples, shard finds, Super Metal, and high-value salvage. Set `UnitCages = true` for discovered achievement-based unit cages. Restart the game after changing either setting.
+
+Markers use the game’s safe frame and scale. In gamepad mode they remain visible and the game keeps ownership of controller focus. Scout’s Map stores no save data.

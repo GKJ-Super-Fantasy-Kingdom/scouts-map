@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Add markers for quest turn-ins, spell pickups, captured monsters, relic and item encounters, unit rewards, recruits, and hero unlocks.
+- Mark pirate returns, ready Wonder rewards, Witch bonfires, hospitals, and resource trades.
+- Add optional markers for rare finds, high-value salvage, and achievement-based unit cages.
+
 ## 0.1.2
 
 - Darken the entire badge while its target is unavailable, including when an expansion is unaffordable. Keep the lock and hover reason legible.
