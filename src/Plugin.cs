@@ -13,7 +13,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.3.0")]
+    [BepInPlugin(Id, "Scout's Map", "0.3.1")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
@@ -362,7 +362,7 @@ namespace ScoutsMap
 
             Vector2 badge = RectTransformUtility.WorldToScreenPoint(uiCamera, hovered.Rect.position);
             if (!MarkerLayout.TryPlaceTooltip(frame, new MarkerPoint(badge.x, badge.y), tooltip.sizeDelta.x * scale,
-                tooltip.sizeDelta.y * scale, scale, out var position))
+                tooltip.sizeDelta.y * scale, scale, occupied, out var position))
             {
                 tooltip.gameObject.SetActive(false);
                 return;

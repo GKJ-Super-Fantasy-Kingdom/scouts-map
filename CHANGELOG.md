@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Move hover tooltips to a clear side of the marker when nearby badges would be covered.
+
 ## 0.3.0
 
 - Anchor on-screen markers above their targets with a downward arrow.

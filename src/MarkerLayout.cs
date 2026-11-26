@@ -53,32 +53,50 @@ namespace ScoutsMap
         }
 
         internal static bool TryPlaceTooltip(MarkerBounds frame, MarkerPoint badge,
-            float width, float height, float scale, out MarkerPoint point)
+            float width, float height, float scale, IReadOnlyList<MarkerPoint> occupied, out MarkerPoint point)
         {
             point = default;
-            float left = frame.Left + width / 2f;
-            float right = frame.Right - width / 2f;
-            float bottom = frame.Bottom + height / 2f;
-            float top = frame.Top - height / 2f;
+            float halfWidth = width / 2f;
+            float halfHeight = height / 2f;
+            float left = frame.Left + halfWidth;
+            float right = frame.Right - halfWidth;
+            float bottom = frame.Bottom + halfHeight;
+            float top = frame.Top - halfHeight;
             if (left > right || bottom > top)
                 return false;
 
-            // Place the callout on the side with room, away from badges stacked along the same edge.
-            float gap = (BadgeSize / 2f + 7f) * scale;
-            float dx = width / 2f + gap;
-            float dy = height / 2f + gap;
-            float x = badge.X + (badge.X < (left + right) / 2f ? dx : -dx);
-            if (x >= left && x <= right)
+            float badgeHalf = BadgeSize / 2f * scale;
+            float gap = badgeHalf + 7f * scale;
+            float clearance = badgeHalf + 4f * scale;
+            float dx = (halfWidth + gap) * (badge.X < (left + right) / 2f ? 1f : -1f);
+            float dy = (halfHeight + gap) * (badge.Y < (bottom + top) / 2f ? 1f : -1f);
+
+            // Try each side beside the hovered badge before shifting the panel along a side.
+            for (int shift = 0; shift < 3; shift++)
             {
-                point = new MarkerPoint(x, Math.Clamp(badge.Y, bottom, top));
+                float offset = shift == 2 ? -1f : shift;
+                float x = Math.Clamp(badge.X + offset * halfWidth, left, right);
+                float y = Math.Clamp(badge.Y + offset * halfHeight, bottom, top);
+                if (TryAt(badge.X + dx, y, out point) || TryAt(badge.X - dx, y, out point) ||
+                    TryAt(x, badge.Y + dy, out point) || TryAt(x, badge.Y - dy, out point))
+                    return true;
+            }
+            return false;
+
+            bool TryAt(float x, float y, out MarkerPoint candidate)
+            {
+                candidate = default;
+                if (x < left || x > right || y < bottom || y > top)
+                    return false;
+                foreach (var marker in occupied)
+                {
+                    if (Math.Abs(x - marker.X) < halfWidth + clearance &&
+                        Math.Abs(y - marker.Y) < halfHeight + clearance)
+                        return false;
+                }
+                candidate = new MarkerPoint(x, y);
                 return true;
             }
-            float y = badge.Y + (badge.Y < (bottom + top) / 2f ? dy : -dy);
-            if (y < bottom || y > top)
-                return false;
-
-            point = new MarkerPoint(Math.Clamp(badge.X, left, right), y);
-            return true;
         }
 
         internal static bool TryPlaceEdge(MarkerBounds frame, float targetX, float targetY,

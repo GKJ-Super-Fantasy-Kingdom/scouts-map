@@ -10,14 +10,31 @@ foreach (var (scale, safe) in new[]
 })
 {
     var corner = new MarkerPoint(safe.Left + 16 * scale, safe.Top - 16 * scale);
-    if (!MarkerLayout.TryPlaceTooltip(safe, corner, 200 * scale, 54 * scale, scale, out var tip) ||
+    occupied.Clear();
+    occupied.Add(corner);
+    if (!MarkerLayout.TryPlaceTooltip(safe, corner, 200 * scale, 54 * scale, scale, occupied, out var tip) ||
         tip.X - 100 * scale < corner.X + 16 * scale ||
         tip.X + 100 * scale > safe.Right || tip.Y + 27 * scale > safe.Top ||
         tip.Y - 27 * scale < safe.Bottom)
         throw new Exception($"A wrapped hover reason should remain inside the HUD reserve at {scale}x.");
     if (MarkerLayout.TryPlaceTooltip(new MarkerBounds(0, 0, 48, 48),
-        new MarkerPoint(24, 24), 75, 60, scale, out _))
+        new MarkerPoint(24, 24), 75, 60, scale, occupied, out _))
         throw new Exception("An oversized tooltip should not cover the HUD or its own marker.");
+    occupied.Clear();
+    var hovered = new MarkerPoint(645, 345);
+    occupied.Add(hovered);
+    occupied.Add(new MarkerPoint(hovered.X - 100 * scale, hovered.Y));
+    if (!MarkerLayout.TryPlaceTooltip(safe, hovered, 200 * scale, 54 * scale, scale, occupied, out tip) ||
+        tip.X - 100 * scale <= hovered.X)
+        throw new Exception($"A nearby badge should move the tooltip to the opposite side at {scale}x.");
+    occupied.Add(new MarkerPoint(hovered.X + 100 * scale, hovered.Y));
+    if (!MarkerLayout.TryPlaceTooltip(safe, hovered, 200 * scale, 54 * scale, scale, occupied, out tip) ||
+        Math.Abs(tip.Y - hovered.Y) <= 27 * scale)
+        throw new Exception($"Badges on both sides should move the tooltip vertically at {scale}x.");
+    occupied.Add(new MarkerPoint(hovered.X, hovered.Y - 60 * scale));
+    occupied.Add(new MarkerPoint(hovered.X, hovered.Y + 60 * scale));
+    if (MarkerLayout.TryPlaceTooltip(safe, hovered, 200 * scale, 54 * scale, scale, occupied, out _))
+        throw new Exception($"When all nearby positions are blocked, keep the badges clear at {scale}x.");
     occupied.Clear();
     if (!MarkerLayout.TryPlaceAbove(safe, new MarkerPoint(640, 360), scale, out var centered) ||
         centered.X != 640 || centered.Y - 16 * scale != 360 + 4 * scale ||
@@ -42,4 +59,4 @@ foreach (var (scale, safe) in new[]
     if (MarkerLayout.TryPlaceEdge(new MarkerBounds(0, 0, 18, 18), 2000, 1450, 640, 360, scale, occupied, out _))
         throw new Exception("A viewport smaller than a badge must leave the HUD clear.");
 }
-Console.WriteLine("PASS anchored alignment, HUD clearance, and marker separation at 1x and 1.5x.");
+Console.WriteLine("PASS tooltip and badge separation, anchored alignment, and HUD clearance at 1x and 1.5x.");
