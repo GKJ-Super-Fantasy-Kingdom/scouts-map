@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Darken the entire badge while its target is unavailable, including when an expansion is unaffordable. Keep the lock and hover reason legible.
+
 ## 0.1.1
 
 - Distinguish event and expansion types with high-contrast illustrations and a visible hover outline.

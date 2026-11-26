@@ -9,8 +9,12 @@ namespace ScoutsMap
         IPointerEnterHandler, IPointerExitHandler, ICanvasRaycastFilter
     {
         private static readonly Color32 Ready = new Color32(240, 194, 113, 255);
-        private static readonly Color32 Blocked = new Color32(157, 167, 179, 255);
+        private static readonly Color32 DisabledRim = new Color32(106, 117, 135, 255);
+        private static readonly Color32 DisabledFocus = new Color32(184, 195, 210, 255);
+        private static readonly Color32 DisabledPlate = new Color32(105, 119, 144, 255);
+        private static readonly Color32 DisabledSymbol = new Color32(190, 201, 213, 255);
         private static readonly Color32 Focused = new Color32(255, 245, 220, 255);
+        private Image plate;
         private Image rim;
         private Image symbol;
         private MarkerArt art;
@@ -31,6 +35,7 @@ namespace ScoutsMap
             plate.sprite = art.Plate;
             go.transform.SetParent(parent, false);
             var badge = go.AddComponent<MarkerBadge>();
+            badge.plate = plate;
             badge.Rect = plate.rectTransform;
             badge.Rect.sizeDelta = Vector2.one * MarkerLayout.BadgeSize;
             badge.rim = Child(plate.transform, "State outline", art.Rim, MarkerLayout.BadgeSize);
@@ -60,9 +65,12 @@ namespace ScoutsMap
             if (State != state)
             {
                 State = state;
-                symbol.sprite = art.Symbol(Target.Icon, state == MarkerState.Available);
+                bool available = state == MarkerState.Available;
+                plate.color = available ? Color.white : (Color)DisabledPlate;
+                symbol.color = available ? Color.white : (Color)DisabledSymbol;
+                symbol.sprite = art.Symbol(Target.Icon, available);
                 RefreshOutline();
-                padlock.gameObject.SetActive(state != MarkerState.Available);
+                padlock.gameObject.SetActive(!available);
             }
             Rect.anchoredPosition = position;
             bearing.Normalize();
@@ -83,9 +91,15 @@ namespace ScoutsMap
 
         private void RefreshOutline()
         {
-            var tone = State == MarkerState.Available ? Ready : Blocked;
-            rim.color = hasHover ? Focused : tone;
-            arrow.color = hasHover ? Focused : tone;
+            if (State == MarkerState.Available)
+            {
+                rim.color = hasHover ? Focused : Ready;
+                arrow.color = rim.color;
+                return;
+            }
+
+            rim.color = hasHover ? DisabledFocus : DisabledRim;
+            arrow.color = DisabledRim;
         }
 
         public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera) =>

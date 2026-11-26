@@ -1,6 +1,6 @@
 # Scout’s Map
 
-Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [package README](thunderstore/README.md) for controls and marker behavior. Version 0.1.1 is a local review build.
+Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [package README](thunderstore/README.md) for controls and marker behavior. Version 0.1.2 is a local review build.
 
 ## First build coverage
 
@@ -24,4 +24,4 @@ dotnet run --project checks/LayoutChecks.csproj -c Release
 python package.py
 ```
 
-Import `dist/ScoutsMap-0.1.1.zip` as a local mod in Thunderstore Mod Manager. The archive contains the plugin and package metadata. The build references game and loader DLLs from the installed dependencies.
+Import `dist/ScoutsMap-0.1.2.zip` as a local mod in Thunderstore Mod Manager. The archive contains the plugin and package metadata. The build references game and loader DLLs from the installed dependencies.

@@ -12,7 +12,7 @@ using UnityEngine.UI;
 
 namespace ScoutsMap
 {
-    [BepInPlugin(Id, "Scout's Map", "0.1.1")]
+    [BepInPlugin(Id, "Scout's Map", "0.1.2")]
     public sealed class Plugin : BaseUnityPlugin
     {
         private const string Id = "gkj.scoutsmap";
