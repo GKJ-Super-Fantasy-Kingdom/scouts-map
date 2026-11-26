@@ -31,7 +31,7 @@ The installed game’s Human and Undead scene data contains the following marker
 | Black Market, old and current guilds, Cartographer, Blacksmith, Food and Siege Markets, the shops for spells, tailoring, targeting and kingdom items, and the World Portal | Shop markers with native availability or a visible setup countdown. |
 | Trading Post, Coin Maker, Super Metal exchange, and Undead Alchemist | Trade markers with the native trade cost or accepted resources. |
 | Quest sites, quest board, school and dungeons | Open objective or ready-to-turn-in marker. |
-| Damaged church, repairable veins, resource and world building sites, starting resources, and occupied camps | Restoration markers until the repair or first improvement is completed. |
+| Damaged church, repairable veins, resource and world building sites, starting resources, occupied camps, and ruined guest buildings or closed gates | Restoration markers until the repair or first improvement is completed. World unlocks follow the native prerequisite and cost. |
 | Guest callers and Caravan gate, Witch, Hospital, Training Grounds, Wizard Tower, Trapper, Monster Hunter, Monster Bell, recruitment sites and Super Portal | Service or shop markers based on native interaction and known limits. |
 | Experience shrine, Seer, random-item site, Pirates, Wonder, and the Doctor’s Hut cloud-color control | Marked while the relevant native action is available or has a known temporary block. |
 | Ordinary city construction buttons, evolution plots, General’s item-placement grid, tutorial objects, and inactive legacy scripts | Native controls. These objects have different interaction paths or no active building action. |

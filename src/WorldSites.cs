@@ -52,6 +52,18 @@ namespace ScoutsMap
         private static readonly AccessTools.FieldRef<BuildingUnit, bool> UnitBought = Field<BuildingUnit, bool>("m_Bought");
         private static readonly AccessTools.FieldRef<BuildingCloudColor, bool> CloudColorUnlocked =
             Field<BuildingCloudColor, bool>("m_IsUpgraded");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, Transform> UnlockedPlot =
+            Field<RaceUnlockablePlaceholder, Transform>("buildingButton");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, Transform> SecondUnlockedPlot =
+            Field<RaceUnlockablePlaceholder, Transform>("buildingButton2");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, GameObject> ReplacementSite =
+            Field<RaceUnlockablePlaceholder, GameObject>("enableAfterAndNextDay");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, RaceEvent> SiteRequirement =
+            Field<RaceUnlockablePlaceholder, RaceEvent>("requirement");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, string> UpgradeText =
+            Field<RaceUnlockablePlaceholder, string>("text");
+        private static readonly AccessTools.FieldRef<RaceUnlockablePlaceholder, ResourceAmount> UpgradeCost =
+            Field<RaceUnlockablePlaceholder, ResourceAmount>("cost");
 
         private static AccessTools.FieldRef<T, F> Field<T, F>(string name) => AccessTools.FieldRefAccess<T, F>(name);
 
@@ -63,6 +75,9 @@ namespace ScoutsMap
                     plot.size == BuildingSize.WorldBig || plot.size == BuildingSize.WorldSpecial:
                 case RepairableBuilding _: case BuildingWorldStartingResource _: case BuildingWorldCamp _:
                     return MarkerIcon.Restore;
+                case RaceUnlockablePlaceholder site:
+                    return UnlockedPlot(site) != null || SecondUnlockedPlot(site) != null || ReplacementSite(site) != null
+                        ? MarkerIcon.Restore : MarkerIcon.Site;
                 case BuildingTradingPost _: return MarkerIcon.TradingPost;
                 case BuildingExperience _: case BuildingEye _: case BuildingMonsterHunter _:
                 case BuildingTrainingGrounds _: case BuildingWizardTower _: case BuildingWorldMonsterBell _:
@@ -139,6 +154,7 @@ namespace ScoutsMap
                     $"Restore {RaceManager.Instance.GetResourceData(PlotResource(plot))?.GetName() ?? "resource site"}",
                 BuildingSpotWorld _ => "Restore building site",
                 RepairableBuilding repair => $"Restore {RepairedBuilding(repair)?.GetTitle() ?? "damaged building"}",
+                RaceUnlockablePlaceholder site => UnlockableTitle(site),
                 BuildingWorldStartingResource site => Localize(RestoreTitle(site), "Starting resource site"),
                 BuildingWorldCamp camp => Localize(MiniBossTitle(camp), "Occupied camp"),
                 BuildingTradingPost post => post.GetTitle(),
@@ -167,6 +183,10 @@ namespace ScoutsMap
             switch (target)
             {
                 case BuildingTradingPost _: return "Requires 5 of a resource the Trading Post accepts";
+                case RaceUnlockablePlaceholder site:
+                    var requirement = SiteRequirement(site);
+                    return requirement != RaceEvent.None && !RaceDataManager.Instance.HasRaceEventFlag(requirement)
+                        ? "Complete this site’s prerequisite first" : null;
                 case BuildingWorldStartingResource site:
                     if (ResourceManager.Instance.GetStars() >= RestoreStars(site))
                         return null;
@@ -206,6 +226,7 @@ namespace ScoutsMap
             BuildingSpotWorld plot when plot.size == BuildingSize.WorldSmall =>
                 new ResourceAmount(ResourceType.Shards, 1 + WorldManager.Instance.GetTotalAmountOfRebuilds()),
             RepairableBuilding repair => repair.cost,
+            RaceUnlockablePlaceholder site when !string.IsNullOrEmpty(UpgradeText(site)) => UpgradeCost(site),
             BuildingWorldStartingResource site => RestoreCosts(site)[0],
             BuildingWorldCamp camp => new ResourceAmount(MiniBossCost(camp), 1),
             BuildingTrainingGrounds _ => new ResourceAmount(ResourceType.Beer, 1),
@@ -215,6 +236,24 @@ namespace ScoutsMap
             BuildingUnit unit => new ResourceAmount(UnitCurrency(unit), UnitManager.Instance.GetUpgradeCost(UnitId(unit), UnitCurrency(unit))),
             BuildingCloudColor clouds when !CloudColorUnlocked(clouds) => new ResourceAmount(ResourceType.Shards, 100),
             _ => default
+        };
+
+        private static string UnlockableTitle(RaceUnlockablePlaceholder site) => site.name switch
+        {
+            "WizardDestroyed" => "Restore the Wizard’s building",
+            "ResearcherDestroyed" => "Restore the Researcher’s building",
+            "BuilderDestroyed" => "Restore the Builder’s building",
+            "GnomesDestroyed" => "Restore the Gnomes’ building",
+            "DemolisherDestroyed" => "Restore the Demolisher’s building",
+            "MerchantDestroyed" => "Restore the Merchant’s building",
+            "DoctorDestroyed" => "Restore the Doctor’s building",
+            "GateClosed" => "Open the gate",
+            "TreeStump" => "Tree stump",
+            "TombstoneEve" => "Tombstone",
+            "Sword" => "Sword",
+            "Boulder" => "Clear boulder",
+            "Boulder.1" => "Clear boulder",
+            _ => "World unlock"
         };
 
         private static string Localize(LocalizedString text, string fallback) =>

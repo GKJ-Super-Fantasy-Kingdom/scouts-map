@@ -10,7 +10,7 @@ A dark badge with a visible lock indicates a temporary block. Shop setup timers,
 
 - **Expansions and shops** include roads, city expansion, water access, and visible shops.
 - **Open quests and turn-ins** include discovered quest sites, dungeons, schools, and quest boards. Hover an open quest to check its progress.
-- **Restoration** includes damaged kingdom buildings, unopened starting-resource sites, resource plots, and occupied camps. Fixed-cost repairs show their price or requirement.
+- **Restoration** includes damaged kingdom buildings, ruined guest buildings, unopened starting-resource sites, resource plots, and occupied camps. Fixed-cost repairs show their price or requirement.
 - **World encounters** include chests, hermits, rewards, spells, captured monsters, relic drops, item and relic offers, unit rewards, recruits, and hero encounters.
 - **Monsters to provoke** show the monster’s portrait and level. Locked markers show the current provocation restriction.
 - **Services and markets** include the Black Market, Trading Post, Witch bonfires, hospitals, guest callers, and the Undead Alchemist.
