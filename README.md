@@ -1,6 +1,6 @@
 # Scout’s Map
 
-Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [package README](thunderstore/README.md) for controls and marker settings. Version 0.4.2 is a local review build.
+Scout’s Map is a BepInEx navigation mod for Super Fantasy Kingdom. See the [player guide](thunderstore/README.md) for controls, marker settings, and installation.
 
 ## Discovery and availability
 
@@ -35,6 +35,12 @@ The installed game’s Human and Undead scene data contains the following marker
 | Guest callers and Caravan gate, Witch, Hospital, Training Grounds, Wizard Tower, Trapper, Monster Hunter, Monster Bell, recruitment sites and Super Portal | Service or shop markers based on native interaction and known limits. |
 | Experience shrine, Seer, random-item site, Pirates, Wonder, and the Doctor’s Hut cloud-color control | Marked while the relevant native action is available or has a known temporary block. |
 | Ordinary city construction buttons, evolution plots, General’s item-placement grid, tutorial objects, and inactive legacy scripts | Native controls. These objects have different interaction paths or no active building action. |
+
+## Screenshots
+
+![Human map at 1× showing the hover outline on a Scout’s Map marker.](docs/screenshots/current/human-marker-1x.png)
+
+![Undead map at 1.5× showing a locked site marker.](docs/screenshots/current/undead-marker-1p5x.png)
 
 ## Build and import locally
 
